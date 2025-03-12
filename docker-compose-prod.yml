@@ -1,0 +1,15 @@
+services:
+  app:
+    container_name: knowledge-rag-backend-container
+    build: .
+    image: knowledge-rag-backend:latest
+    ports:
+      - '7000:7000'
+    environment:
+      SERVER_PORT: 7000
+    volumes:
+      - .:/know
+      - ./logs:/know/logs
+      - ./static:/know/static
+    command: yarn start:prod
+    network_mode: host

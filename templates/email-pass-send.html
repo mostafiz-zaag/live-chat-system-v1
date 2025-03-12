@@ -1,0 +1,124 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+  <title>DEFAI</title>
+  <style>
+      * {
+          margin: 0;
+          padding: 0;
+          font-family: "Inter", sans-serif;
+          box-sizing: border-box;
+          font-size: 14px;
+      }
+
+      .parent {
+          font-family: Inter, sans-serif;
+          line-height: 22px;
+      }
+
+      .logo-wrapper {
+          text-align: center;
+          margin-top: 12px
+      }
+
+      .logo-wrapper img {
+          width: 128px;
+          height: 36px;
+      }
+
+      .email-content-wrapper {
+          margin: 50px auto;
+          width: 98%;
+          padding: 20px 0
+      }
+
+      .message-title {
+          font-weight: 700;
+          font-size: 24px;
+          margin: 48px 0px 24px 0px;
+      }
+
+      .greeting-title {
+          font-size: 16px;
+          font-weight: 600
+      }
+
+      .email-text-one {
+          margin-bottom: 24px;
+      }
+
+      .credential-wrapper {
+          font-weight: 600;
+          font-size: 16px;
+      }
+
+      .credential-wrapper .credential-value {
+          color: #0F62FE;
+      }
+
+      .email-text-last {
+          margin: 24px 0;
+      }
+
+      .best-regards-title {
+          margin-top: 24px
+      }
+
+      .team-title {
+          font-weight: 600
+      }
+
+      .divider {
+          border-top: 1px solid #E8E8E8;
+          margin: 48px 0px 24px 0px
+      }
+
+      .copyright-title {
+          text-align: center
+      }
+  </style>
+</head>
+
+<body>
+<div class="parent">
+  <div class="logo-wrapper">
+    <img src="cid:logo">
+  </div>
+  <div class="email-content-wrapper">
+    <p class="message-title">
+      ${message}
+    </p>
+    <p class="greeting-title">
+      Hi ${userName},
+    </p>
+    <p class="email-text-one">
+      We’re thrilled to welcome you to our system. Your account is ready to go. Please use the
+      following email and password to login to your account.
+    </p>
+
+    <p class="credential-wrapper">
+      <span>Email:</span> <span class="credential-value">${email}</span>
+    </p>
+    <p class="credential-wrapper">
+      <span>Password:</span> <span class="credential-value">${password}</span>
+    </p>
+
+    <p class="email-text-last">
+      Please don’t share your credentials with anyone else.
+    </p>
+    <p class="best-regards-title">
+      Best Regards,
+    </p>
+    <p class="team-title">
+      ${company} Team
+    </p>
+    <hr class="divider" />
+    <p class="copyright-title">
+      &#169; ${year} ${company}, All rights Reserved
+    </p>
+  </div>
+</div>
+</body>
+
+</html>
