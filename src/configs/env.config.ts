@@ -22,6 +22,8 @@ export const envConfig = {
     COMPANY_NAME: process.env.COMPANY_NAME,
     COMPANY_ADDRESS: process.env.SERVER_PORT,
     SERVER_URL: process.env.SERVER_PORT,
+    JWT_SECRET: process.env.JWT_SECRET,
+    JWT_EXPIRED: process.env.JWT_EXPIRED,
 
     S3_PREFIX: process.env.SERVER_PORT,
     S3_ACCESS_KEY: process.env.SERVER_PORT,

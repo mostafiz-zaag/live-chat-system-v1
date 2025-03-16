@@ -3,8 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AgentModule } from '../agents/agent.module'; // Import AgentModule
 import { ChatModule } from '../chat/chat.module';
 import { NatsModule } from '../nats/nats.module';
+import { User } from './entities/user.entity';
 import { UserController } from './user.controller';
-import { User } from './user.entity';
 import { UserService } from './user.service';
 
 @Module({
