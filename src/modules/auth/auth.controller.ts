@@ -1,4 +1,11 @@
-import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    HttpCode,
+    Post,
+    UnauthorizedException,
+} from '@nestjs/common';
+import { UserRegisterDto } from '../user/dto/user-register.dto';
 import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -10,8 +17,10 @@ export class AuthController {
         private readonly userService: UserService,
     ) {}
 
+    @HttpCode(200)
     @Post('/login')
     async login(@Body() loginDto: LoginDto) {
+        console.log('USer ----------- ');
         const user = await this.authService.validateUser(
             loginDto.email,
             loginDto.password,
@@ -20,8 +29,10 @@ export class AuthController {
         return this.authService.login(user);
     }
 
+    // @UseGuards(JwtAuthGuard, RolesGuard)
+    // @Roles(Role.ADMIN)
     @Post('/register')
-    async register(@Body() registerDto: any) {
-        return this.userService.register(registerDto);
+    async register(@Body() registerDto: UserRegisterDto) {
+        return this.authService.register(registerDto);
     }
 }

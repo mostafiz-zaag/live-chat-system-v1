@@ -1,5 +1,6 @@
 // src/modules/user/user.controller.ts
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Role } from 'src/enums/user-role';
 import { UserService } from './user.service';
 
 @Controller('users')
@@ -14,5 +15,10 @@ export class UserController {
     @Get('queue-size')
     async getQueueSize() {
         return this.usersService.getQueueSize();
+    }
+
+    @Get('/all')
+    async getAllUsers(@Query('role') role?: Role) {
+        return this.usersService.getAllUsers(role);
     }
 }

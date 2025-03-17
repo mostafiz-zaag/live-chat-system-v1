@@ -8,11 +8,30 @@ export class UserRepository extends Repository<User> {
         super(User, dataSource.createEntityManager());
     }
 
-    async findByEmail(email: string): Promise<User> {
-        return this.findOne({
-            where: { email },
+    async findByEmail(email: string): Promise<User | null> {
+        return this.findOne({ where: { email } });
+    }
+
+    async findById(id: number): Promise<User | null> {
+        return this.findOne({ where: { id } });
+    }
+
+    async createUser(userData: Partial<User>): Promise<User> {
+        const user = this.create(userData);
+        return this.save(user);
+    }
+
+    async getAgentsByManagerId(managerId: number): Promise<User[]> {
+        return this.find({
+            where: {
+                manager: { id: managerId },
+            },
+            relations: ['manager'],
         });
     }
 
-    async createUser();
+    async emailExists(email: string): Promise<boolean> {
+        const count = await this.count({ where: { email } });
+        return count > 0;
+    }
 }

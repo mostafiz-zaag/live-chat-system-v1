@@ -31,4 +31,8 @@ export const envConfig = {
     S3_BUCKET_NAME: process.env.SERVER_PORT,
     REGION: process.env.SERVER_PORT,
     S3_URL: process.env.SERVER_PORT,
+    SMTP_HOST_FOR_MAIL: process.env.SMTP_HOST_FOR_MAIL,
+    SMTP_PORT_FOR_MAIL: process.env.SMTP_PORT_FOR_MAIL,
+    SMTP_USER_FOR_MAIL: process.env.SMTP_USER_FOR_MAIL,
+    SMTP_PASSWORD_FOR_MAIL: process.env.SMTP_PASSWORD_FOR_MAIL,
 };

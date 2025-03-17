@@ -1,26 +1,28 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
-import { CustomGlobalExceptionFilter } from 'src/exceptions/global.exception';
-import { LoggerMiddleware } from 'src/logging/logger.middleware';
-import { BaseController } from './modules/base/base.controller';
-import { BaseService } from './modules/base/base.service';
-import { SeederModule } from './seeder/seeder.module';
-import { CommonModule } from './common/modules/common.module';
-import { RequestMiddleware } from './middlewares/request.middleware';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
+import { CustomGlobalExceptionFilter } from 'src/exceptions/global.exception';
+import { LoggerMiddleware } from 'src/logging/logger.middleware';
+import { CommonModule } from './common/modules/common.module';
+import { databaseConfig } from './configs/database.config';
 import { STATIC } from './constants/global.constant';
+import { MailModule } from './mail/mail.module';
+import { RequestMiddleware } from './middlewares/request.middleware';
 import { StaticFileCheckMiddleware } from './middlewares/static-file-check.middleware';
 import { AgentModule } from './modules/agents/agent.module';
-import { ChatModule } from './modules/chat/chat.module';
-import { UserModule } from './modules/user/user.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { BaseController } from './modules/base/base.controller';
+import { BaseService } from './modules/base/base.service';
 import { ChatGateway } from './modules/chat/chat.gateway';
+import { ChatModule } from './modules/chat/chat.module';
 import { NatsModule } from './modules/nats/nats.module';
-import { EventEmitterModule } from '@nestjs/event-emitter';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { databaseConfig } from './configs/database.config';
+import { UserModule } from './modules/user/user.module';
+import { SeederModule } from './seeder/seeder.module';
 
 @Module({
     imports: [
@@ -40,6 +42,8 @@ import { databaseConfig } from './configs/database.config';
         UserModule,
         NatsModule,
         EventEmitterModule.forRoot(),
+        AuthModule,
+        MailModule,
     ],
     controllers: [BaseController],
     providers: [
