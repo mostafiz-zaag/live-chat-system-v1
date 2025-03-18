@@ -1,0 +1,17 @@
+{
+    "roomId": 1,
+    "userId": "user1"
+}
+
+
+{
+    "roomId": 1,
+    "userId": "agent1"
+}
+
+
+{
+    "roomId": "1",
+    "sender": "user1",
+    "message": "Hello, is anyone there?"
+}

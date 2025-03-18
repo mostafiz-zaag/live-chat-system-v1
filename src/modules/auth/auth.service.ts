@@ -221,7 +221,61 @@ export class AuthService {
         };
     }
 
-    async register(registerDto: UserRegisterDto): Promise<User> {
+    // async register(registerDto: UserRegisterDto): Promise<User> {
+    //     const {
+    //         email,
+    //         username,
+    //         role,
+    //         departments,
+    //         languages,
+    //         language,
+    //         managerId,
+    //     } = registerDto;
+
+    //     const existingUser = await this.userRepository.findByEmail(email);
+    //     if (existingUser) throw new BadRequestException('User already exists');
+
+    //     // ✅ Generate a temporary password
+    //     const temporaryPassword = Math.random().toString(36).slice(-8);
+    //     console.log('🔑 Generated Temporary Password:', temporaryPassword);
+
+    //     // ✅ Ensure password is hashed only once
+    //     const hashedPassword =
+    //         await this.securityUtil.hashPassword(temporaryPassword);
+    //     console.log('🔒 Hashed Password to Store:', hashedPassword);
+
+    //     let manager: User | undefined;
+    //     if (role === Role.AGENT) {
+    //         manager = await this.userRepository.findById(managerId);
+    //         if (!manager) throw new BadRequestException('Manager not found');
+    //     }
+
+    //     // ✅ Store the hashed password
+    //     const user = await this.userRepository.createUser({
+    //         email,
+    //         username,
+    //         password: hashedPassword, // Ensure it's hashed only once
+    //         role,
+    //         departments: role === Role.MANAGER ? departments : undefined,
+    //         languages: role === Role.MANAGER ? languages : undefined,
+    //         language: role === Role.AGENT ? language : undefined,
+    //         manager,
+    //         isTemporaryPassword: true,
+    //     });
+
+    //     // ✅ Send email with the **correct** temporary password
+    //     await this.mailService.sendRegistrationEmail(
+    //         email,
+    //         role,
+    //         temporaryPassword,
+    //     );
+
+    //     return user;
+    // }
+
+    async register(
+        registerDto: UserRegisterDto,
+    ): Promise<{ message: string; user: Partial<User> }> {
         const {
             email,
             username,
@@ -239,7 +293,7 @@ export class AuthService {
         const temporaryPassword = Math.random().toString(36).slice(-8);
         console.log('🔑 Generated Temporary Password:', temporaryPassword);
 
-        // ✅ Ensure password is hashed only once
+        // ✅ Hash the password securely
         const hashedPassword =
             await this.securityUtil.hashPassword(temporaryPassword);
         console.log('🔒 Hashed Password to Store:', hashedPassword);
@@ -250,7 +304,7 @@ export class AuthService {
             if (!manager) throw new BadRequestException('Manager not found');
         }
 
-        // ✅ Store the hashed password
+        // ✅ Store user with hashed password
         const user = await this.userRepository.createUser({
             email,
             username,
@@ -263,13 +317,22 @@ export class AuthService {
             isTemporaryPassword: true,
         });
 
-        // ✅ Send email with the **correct** temporary password
+        // ✅ Send Email Notification
         await this.mailService.sendRegistrationEmail(
             email,
             role,
             temporaryPassword,
         );
 
-        return user;
+        // ✅ Send SMS Notification (If needed)
+        // await this.smsService.sendSms(phoneNumber, `Your temporary password is: ${temporaryPassword}`);
+
+        // ✅ Remove password before returning user
+        const { password, ...userWithoutPassword } = user;
+
+        return {
+            message: 'Register successfully',
+            user: userWithoutPassword,
+        };
     }
 }
