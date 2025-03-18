@@ -28,22 +28,21 @@ export class UserRegisterDto {
     @IsNotEmpty({ message: 'Username is required for managers and agents.' })
     username?: string;
 
-    // Allow multiple departments for Managers
-    @ValidateIf((o) => o.role === Role.MANAGER)
+    // ✅ Allow multiple departments for Managers and Agents
+    @ValidateIf((o) => o.role === Role.MANAGER || o.role === Role.AGENT)
     @IsArray({ message: 'Departments must be an array of strings.' })
-    @IsNotEmpty({ message: 'Departments are required for managers.' })
+    @IsNotEmpty({
+        message: 'Departments are required for managers and agents.',
+    })
     departments?: string[];
 
-    @ValidateIf((o) => o.role === Role.MANAGER)
+    // ✅ Allow multiple languages for Managers and Agents
+    @ValidateIf((o) => o.role === Role.MANAGER || o.role === Role.AGENT)
     @IsArray({ message: 'Languages must be an array of strings.' })
-    // @IsOptional()
+    @IsNotEmpty({ message: 'Languages are required for managers and agents.' })
     languages?: string[];
 
-    @ValidateIf((o) => o.role === Role.AGENT)
-    @IsString({ message: 'Language must be a valid string.' })
-    @IsNotEmpty({ message: 'Language is required for agents.' })
-    language?: string;
-
+    // ✅ Ensure `managerId` is required for Agents
     @ValidateIf((o) => o.role === Role.AGENT)
     @IsNumber({}, { message: 'Manager ID must be a valid number.' })
     @IsNotEmpty({ message: 'Manager is required for agents.' })
