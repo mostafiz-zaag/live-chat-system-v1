@@ -276,15 +276,8 @@ export class AuthService {
     async register(
         registerDto: UserRegisterDto,
     ): Promise<{ message: string; user: Partial<User> }> {
-        const {
-            email,
-            username,
-            role,
-            departments,
-            languages,
-            language,
-            managerId,
-        } = registerDto;
+        const { email, username, role, departments, languages, managerId } =
+            registerDto;
 
         const existingUser = await this.userRepository.findByEmail(email);
         if (existingUser) throw new BadRequestException('User already exists');
@@ -312,7 +305,6 @@ export class AuthService {
             role,
             departments: role === Role.MANAGER ? departments : undefined,
             languages: role === Role.MANAGER ? languages : undefined,
-            language: role === Role.AGENT ? language : undefined,
             manager,
             isTemporaryPassword: true,
         });
