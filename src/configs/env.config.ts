@@ -22,6 +22,8 @@ export const envConfig = {
     COMPANY_NAME: process.env.COMPANY_NAME,
     COMPANY_ADDRESS: process.env.SERVER_PORT,
     SERVER_URL: process.env.SERVER_PORT,
+    JWT_SECRET: process.env.JWT_SECRET,
+    JWT_EXPIRED: process.env.JWT_EXPIRED,
 
     S3_PREFIX: process.env.SERVER_PORT,
     S3_ACCESS_KEY: process.env.SERVER_PORT,
@@ -29,4 +31,8 @@ export const envConfig = {
     S3_BUCKET_NAME: process.env.SERVER_PORT,
     REGION: process.env.SERVER_PORT,
     S3_URL: process.env.SERVER_PORT,
+    SMTP_HOST_FOR_MAIL: process.env.SMTP_HOST_FOR_MAIL,
+    SMTP_PORT_FOR_MAIL: process.env.SMTP_PORT_FOR_MAIL,
+    SMTP_USER_FOR_MAIL: process.env.SMTP_USER_FOR_MAIL,
+    SMTP_PASSWORD_FOR_MAIL: process.env.SMTP_PASSWORD_FOR_MAIL,
 };

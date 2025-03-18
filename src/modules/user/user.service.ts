@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { Role } from 'src/enums/user-role';
 import { AgentService } from '../agents/agent.service';
 import { ChatService } from '../chat/chat.service';
 import { Room } from '../chat/entities/room.entity';
 import { NatsService } from '../nats/nats.service';
+import { UserRepository } from './user.repository';
 
 @Injectable()
 export class UserService {
@@ -10,6 +12,7 @@ export class UserService {
         private readonly chatService: ChatService,
         private readonly natsService: NatsService,
         private readonly agentService: AgentService,
+        private readonly userRepository: UserRepository,
     ) {}
 
     // async requestAssistance(
@@ -114,5 +117,12 @@ export class UserService {
         waitingRooms: { roomId: number; userId: string; roomName: string }[];
     }> {
         return await this.chatService.getWaitingUsers();
+    }
+
+    async getAllUsers(role?: Role) {
+        if (role) {
+            return this.userRepository.find({ where: { role } });
+        }
+        return this.userRepository.find();
     }
 }
