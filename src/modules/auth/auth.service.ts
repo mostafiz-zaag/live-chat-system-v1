@@ -4,6 +4,8 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { randomInt } from 'crypto';
+import { addMinutes } from 'date-fns';
 import { Role } from 'src/enums/user-role';
 import { MailService } from 'src/mail/mail.service';
 import { JwtTokenUtil } from '../../utils/jwt-token.util';
@@ -12,7 +14,9 @@ import { UserRegisterDto } from '../user/dto/user-register.dto';
 import { User } from '../user/entities/user.entity';
 import { UserRepository } from '../user/user.repository';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
+
 @Injectable()
 export class AuthService {
     constructor(
@@ -119,6 +123,8 @@ export class AuthService {
         user.otpExpires = null;
         await this.userRepository.save(user);
 
+        const { password, ...userWithoutPassword } = user;
+
         // ✅ **Step 4: If User Has a Temporary Password, Force Password Change**
         if (user.isTemporaryPassword) {
             return {
@@ -133,13 +139,14 @@ export class AuthService {
         const accessToken = this.jwtTokenUtil.generateToken(payload);
 
         return {
-            access_token: accessToken,
             message: 'Login successful.',
+            user: userWithoutPassword,
+            access_token: accessToken,
         };
     }
 
     async changePassword(dto: ChangePasswordDto) {
-        const { email, oldPassword, newPassword, confirmPassword } = dto;
+        const { email, newPassword, confirmPassword } = dto;
 
         const user = await this.userRepository.findByEmail(email);
         if (!user) throw new NotFoundException('User not found.');
@@ -153,15 +160,15 @@ export class AuthService {
         }
 
         // **STEP 2: Verify Old Password**
-        const isOldPasswordValid = await this.securityUtil.verifyPassword(
-            oldPassword,
-            user.password,
-        );
+        // const isOldPasswordValid = await this.securityUtil.verifyPassword(
+        //     oldPassword,
+        //     user.password,
+        // );
 
-        if (!isOldPasswordValid) {
-            console.log('🚨 Old password is incorrect.');
-            throw new BadRequestException('Incorrect old password.');
-        }
+        // if (!isOldPasswordValid) {
+        //     console.log('🚨 Old password is incorrect.');
+        //     throw new BadRequestException('Incorrect old password.');
+        // }
 
         // **STEP 3: Check if new passwords match**
         if (newPassword !== confirmPassword) {
@@ -183,6 +190,34 @@ export class AuthService {
 
         return {
             message: 'Password changed successfully. You can now log in.',
+        };
+    }
+
+    async forgotPassword(dto: ForgotPasswordDto) {
+        const { email } = dto;
+        const user = await this.userRepository.findByEmail(email);
+        if (!user) throw new NotFoundException('User not found.');
+
+        console.log('🔵 Sending OTP for password reset to:', email);
+
+        // ✅ Generate a 6-digit OTP
+        const otp = randomInt(100000, 999999).toString();
+        console.log('🔢 Generated OTP:', otp);
+
+        // ✅ Hash OTP before storing it
+        const otpHash = await bcrypt.hash(otp, 10);
+        const otpExpires = addMinutes(new Date(), 5); // OTP expires in 5 minutes
+
+        user.otp = otpHash;
+        user.otpExpires = otpExpires;
+        await this.userRepository.save(user);
+
+        // ✅ Send OTP Email
+        await this.mailService.sendOtpEmail(user.email, otp);
+
+        return {
+            message:
+                'OTP sent to your email. Please verify OTP to reset your password.',
         };
     }
 

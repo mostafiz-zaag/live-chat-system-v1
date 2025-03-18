@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import {
+    IsEmail,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+    MinLength,
+} from 'class-validator';
 
 export class ChangePasswordDto {
     @IsEmail({}, { message: 'Please provide a valid email address.' })
@@ -7,7 +13,8 @@ export class ChangePasswordDto {
 
     @IsString({ message: 'Old password must be a valid string.' })
     @IsNotEmpty({ message: 'Old password is required.' })
-    oldPassword: string;
+    @IsOptional()
+    oldPassword?: string;
 
     @IsString({ message: 'New password must be a valid string.' })
     @MinLength(6, {

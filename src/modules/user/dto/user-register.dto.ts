@@ -36,7 +36,7 @@ export class UserRegisterDto {
 
     @ValidateIf((o) => o.role === Role.MANAGER)
     @IsArray({ message: 'Languages must be an array of strings.' })
-    @IsOptional()
+    // @IsOptional()
     languages?: string[];
 
     @ValidateIf((o) => o.role === Role.AGENT)
