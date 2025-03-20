@@ -65,6 +65,15 @@ export class User {
     @Column({ nullable: true })
     resetTokenExpires?: Date;
 
+    @Column({ nullable: true })
+    twoFASecret?: string; // Stores the base32 secret for 2FA
+
+    @Column({ default: false })
+    is2FAEnabled: boolean; // To track if 2FA is enabled for the user
+
+    @Column({ default: false })
+    twoFAVerified: boolean; // To track if the user has verified their 2FA
+
     @CreateDateColumn()
     createdAt: Date;
 
