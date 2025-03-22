@@ -1,6 +1,7 @@
 import {
     ArrayNotEmpty,
     IsArray,
+    IsBoolean,
     IsEmail,
     IsEnum,
     IsNotEmpty,
@@ -47,6 +48,11 @@ export class UserRegisterDto {
     })
     @IsOptional()
     status?: AgentStatus = AgentStatus.BUSY;
+
+    @ValidateIf((o) => o.role === Role.AGENT)
+    @IsBoolean({ message: 'isAssigned must be a boolean.' })
+    @IsOptional()
+    isAssigned?: boolean = false;
 
     // Manager ID required for AGENT only
     @ValidateIf((o) => o.role === Role.AGENT)
