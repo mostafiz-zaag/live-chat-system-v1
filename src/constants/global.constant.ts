@@ -3,7 +3,7 @@
 export const IMAGE_USER_FOLDER = 'USER';
 
 /*======= CompanyName =========*/
-export const COMPANY_NAME = 'DEFAI';
+export const COMPANY_NAME = 'Live-chat-system';
 
 /*========== Email Message ======*/
 export const EMAIL_MESSAGE_COMPLETE_LOGIN = 'Complete Login';

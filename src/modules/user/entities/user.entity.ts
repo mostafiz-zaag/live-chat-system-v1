@@ -1,4 +1,6 @@
 import {
+    BeforeInsert,
+    BeforeUpdate,
     Column,
     CreateDateColumn,
     Entity,
@@ -26,38 +28,35 @@ export class User {
     @Column({ type: 'enum', enum: Role, default: Role.AGENT })
     role: Role;
 
-    // Allow managers to have multiple departments
+    @Column({ default: false })
+    isActive: boolean; // <-- New isActive Column
+
     @Column({ type: 'simple-array', nullable: true })
     departments?: string[];
 
     @Column({ default: true })
     isTemporaryPassword: boolean;
 
-    // Agents must have a manager (CircularRelation Fix: nullable: true)
     @ManyToOne(() => User, (user) => user.agents, {
         nullable: true,
         onDelete: 'SET NULL',
     })
     manager?: User;
 
-    // Managers can have multiple agents
     @OneToMany(() => User, (user) => user.manager)
     agents?: User[];
 
-    // Managers can have multiple languages
     @Column({ type: 'simple-array', nullable: true })
     languages?: string[];
 
-    // Agents must have one language
     @Column({ nullable: true })
     language?: string;
 
-    // **OTP Verification Fields**
     @Column({ nullable: true })
-    otp?: string; // Stores OTP (hashed)
+    otp?: string;
 
     @Column({ nullable: true, type: 'timestamp' })
-    otpExpires?: Date; // OTP Expiration Time
+    otpExpires?: Date;
 
     @Column({ nullable: true })
     resetToken?: string;
@@ -65,9 +64,28 @@ export class User {
     @Column({ nullable: true })
     resetTokenExpires?: Date;
 
+    @Column({ nullable: true })
+    twoFASecret?: string;
+
+    @Column({ default: false })
+    is2FAEnabled: boolean;
+
+    @Column({ default: false })
+    twoFAVerified: boolean;
+
+    @Column({ default: false })
+    isRequested: boolean;
+
     @CreateDateColumn()
     createdAt: Date;
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    // Lifecycle Hooks to ensure correct isActive state
+    @BeforeInsert()
+    @BeforeUpdate()
+    setActiveStatus() {
+        this.isActive = this.role === Role.ADMIN;
+    }
 }
