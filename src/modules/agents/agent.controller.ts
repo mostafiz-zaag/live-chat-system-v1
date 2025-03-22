@@ -46,10 +46,4 @@ export class AgentController {
     async getAgentById(@Param('agentId') agentId: string) {
         return this.agentService.getAgentById(agentId);
     }
-
-    //
-    @Post('create')
-    async createAgent(@Body() agentStatusDto: AgentStatusDto) {
-        return this.agentService.createAgent(agentStatusDto);
-    }
 }

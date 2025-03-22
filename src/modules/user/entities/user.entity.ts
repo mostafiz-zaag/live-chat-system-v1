@@ -9,7 +9,7 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import { Role } from '../../../enums/user-role';
+import { AgentStatus, Role } from '../../../enums/user-role';
 
 @Entity()
 export class User {
@@ -31,7 +31,10 @@ export class User {
     @Column({ default: false })
     isActive: boolean; // <-- New isActive Column
 
-    @Column({ type: 'simple-array', nullable: true })
+    @Column({ type: 'text', array: true, nullable: true }) // ✅ Corrected clearly
+    languages?: string[];
+
+    @Column({ type: 'text', array: true, nullable: true }) // ✅ Corrected clearly
     departments?: string[];
 
     @Column({ default: true })
@@ -45,9 +48,6 @@ export class User {
 
     @OneToMany(() => User, (user) => user.manager)
     agents?: User[];
-
-    @Column({ type: 'simple-array', nullable: true })
-    languages?: string[];
 
     @Column({ nullable: true })
     language?: string;
@@ -75,6 +75,16 @@ export class User {
 
     @Column({ default: false })
     isRequested: boolean;
+
+    @Column({ default: false })
+    isAssigned: boolean;
+
+    @Column({
+        type: 'enum',
+        enum: AgentStatus,
+        default: AgentStatus.BUSY, // Default clearly set to BUSY
+    })
+    status: AgentStatus;
 
     @CreateDateColumn()
     createdAt: Date;

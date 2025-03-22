@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository, IsNull } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { Room } from '../entities/room.entity';
 
 @Injectable()
@@ -36,5 +36,16 @@ export class RoomRepository extends Repository<Room> {
 
     async deleteRoom(roomId: number): Promise<void> {
         await this.delete(roomId);
+    }
+
+    // Update
+    // room.repository.ts
+    async createRoomForUser(userId: string): Promise<Room> {
+        const room = this.create({
+            userId,
+            name: `Room for User ${userId}`,
+            agentId: null, // no agent initially
+        });
+        return await this.save(room);
     }
 }

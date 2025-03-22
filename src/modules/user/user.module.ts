@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AgentModule } from '../agents/agent.module'; // Import AgentModule
 import { ChatModule } from '../chat/chat.module';
+import { RoomRepository } from '../chat/repositories/room.repository';
 import { NatsModule } from '../nats/nats.module';
 import { User } from './entities/user.entity';
 import { UserController } from './user.controller';
@@ -16,7 +17,7 @@ import { UserService } from './user.service';
         AgentModule, // Ensure AgentModule is imported for `AgentService`
     ],
     controllers: [UserController],
-    providers: [UserService, UserRepository],
+    providers: [UserService, UserRepository, RoomRepository],
     exports: [UserService, UserRepository], // Export `UserService` if needed elsewhere
 })
 export class UserModule {}

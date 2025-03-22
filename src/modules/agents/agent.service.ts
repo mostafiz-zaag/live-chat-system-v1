@@ -1,13 +1,7 @@
-import {
-    BadRequestException,
-    Inject,
-    Injectable,
-    NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { AgentStatusDto } from './dto/agent.dto';
-import { AgentRepository } from './agent.repository';
 import { RoomRepository } from '../chat/repositories/room.repository';
+import { AgentRepository } from './agent.repository';
 
 @Injectable()
 export class AgentService {
@@ -68,7 +62,10 @@ export class AgentService {
 
         let assignedRoom = await this.roomRepository.findUnassignedRoom();
         if (assignedRoom) {
-            await this.roomRepository.assignAgentToRoom(assignedRoom.id, agentId);
+            await this.roomRepository.assignAgentToRoom(
+                assignedRoom.id,
+                agentId,
+            );
 
             await this.natsClient
                 .emit('agent.assigned', {
@@ -125,34 +122,6 @@ export class AgentService {
         }
         await this.agentRepository.updateAgentStatus(agentId, status);
         return { message: `Agent ${agentId} status updated to ${status}.` };
-    }
-
-    async createAgent(agentDto: AgentStatusDto) {
-        const { agentId, name } = agentDto;
-
-        const existingAgentById = await this.agentRepository.findById(agentId);
-        const existingAgentByName = await this.agentRepository.findByName(name);
-
-        if (existingAgentById) {
-            throw new BadRequestException(
-                `Agent with ${agentId} already exists.`,
-            );
-        }
-
-        if (existingAgentByName) {
-            throw new BadRequestException(`Agent with ${name} already exists.`);
-        }
-
-        const newAgent = await this.agentRepository.createAgent({
-            agentId,
-            name,
-            status: 'busy',
-        });
-
-        return {
-            message: `Agent "${name}" created successfully.`,
-            agent: newAgent,
-        };
     }
 
     async getNextAvailableAgent() {
