@@ -14,6 +14,7 @@ import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
 import { AdminLoginDto } from './dto/admin.login';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChangeUsernameDto } from './dto/change-username.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -83,10 +84,29 @@ export class AuthController {
         }
     }
 
-    // Endpoint to verify the 2FA token and activate the user
-    @Post(`${API_PREFIX}/verify-2fa/:username`)
+    @Post(`${API_PREFIX}/auth/login`)
+    async login(@Body() loginDto: LoginDto) {
+        return this.authService.login(loginDto.username, loginDto.token);
+    }
+
+    // FOR ADMIN LOGIN
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/auth/admin/login`)
+    async adminLogin(@Body() loginDto: AdminLoginDto) {
+        console.log('loginDto', loginDto);
+        return this.authService.adminLogin(loginDto);
+    }
+
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/auth/admin/confirm-username`)
+    async comfirmUsername(@Body() chnageUsernameDto: ChangeUsernameDto) {
+        return this.authService.changeUsername(chnageUsernameDto);
+    }
+
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/verify-2fa`)
     async verify2FA(
-        @Param('username') username: string,
+        @Body('username') username: string,
         @Body('token') token: string,
     ) {
         const isVerified = await this.authService.verify2FAToken(
@@ -94,23 +114,29 @@ export class AuthController {
             token,
         );
         return isVerified
-            ? { message: '2FA activated successfully' }
+            ? {
+                  message: '2FA activated successfully',
+                  access_token: isVerified,
+              }
             : { message: 'Invalid 2FA token' };
     }
 
-    @Post(`${API_PREFIX}/auth/login`)
-    async login(@Body() loginDto: LoginDto) {
-        return this.authService.login(loginDto.username, loginDto.token);
+    // check user is active or not
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/auth/check-user`)
+    async checkUser(@Body('username') username: string) {
+        return this.authService.checkUserIsActive(username);
     }
 
-    // FOR ADMIN LOGIN
-    @Post(`${API_PREFIX}/auth/admin/login`)
-    async adminLogin(@Body() loginDto: AdminLoginDto) {
-        return this.authService.adminLogin(loginDto);
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/auth/user-activation-request`)
+    async userActivation(@Body('username') username: string) {
+        return this.authService.userActivation(username);
     }
 
-    @Post(`${API_PREFIX}/auth/admin/confirm-username`)
-    async comfirmUsername(@Body('username') username: string) {
-        return this.authService.updateAdminUsernames(username);
+    @HttpCode(200)
+    @Get(`${API_PREFIX}/auth/user-activation-request-list`)
+    async userActivationList() {
+        return await this.userService.allRequestForActiveUsers();
     }
 }
