@@ -5,6 +5,7 @@ import {
     HttpCode,
     Param,
     Post,
+    Put,
     Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -138,5 +139,26 @@ export class AuthController {
     @Get(`${API_PREFIX}/auth/user-activation-request-list`)
     async userActivationList() {
         return await this.userService.allRequestForActiveUsers();
+    }
+
+    // Lost my device
+
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/auth/lost-device`)
+    async lostDevice(@Body('username') username: string) {
+        return this.authService.lostDevice(username);
+    }
+
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/auth/forgot-username`)
+    async forgotUsername(@Body('email') email: string) {
+        return this.authService.forgotUsername(email);
+    }
+
+    // Account active
+    @HttpCode(200)
+    @Put(`${API_PREFIX}/auth/active-account`)
+    async activeAccount(@Body('username') username: string) {
+        return this.authService.activeAccount(username);
     }
 }
