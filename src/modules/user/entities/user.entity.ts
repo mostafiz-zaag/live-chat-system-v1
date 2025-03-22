@@ -72,7 +72,7 @@ export class User {
     twoFAVerified: boolean;
 
     @Column({ default: false })
-    isRegistered?: boolean;
+    isRequested: boolean;
 
     @CreateDateColumn()
     createdAt: Date;

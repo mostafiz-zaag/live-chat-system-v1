@@ -552,11 +552,65 @@ export class AuthService {
             throw new NotFoundException('User not found');
         }
 
-        user.isRegistered = true;
+        user.isRequested = true;
         await this.userRepository.save(user);
 
         return {
             message: 'User activated request successfully',
+        };
+    }
+
+    async lostDevice(username: string): Promise<any> {
+        const user = await this.userRepository.findByUsername(username);
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+        user.isRequested = true;
+
+        await this.userRepository.save(user);
+
+        return {
+            message: 'User lost device request successfully',
+        };
+    }
+
+    async forgotUsername(email: string): Promise<any> {
+        const user = await this.userRepository.findByEmail(email);
+
+        console.log('🔍 Found user:', user);
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        user.isRequested = true;
+        await this.userRepository.save(user);
+
+        return {
+            message: 'User forgot username request successfully',
+        };
+    }
+
+    // active
+
+    async activeAccount(username: string): Promise<any> {
+        const user = await this.userRepository.findByUsername(username);
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        if (user.isActive) {
+            throw new BadRequestException('User account is already active');
+        }
+
+        user.isActive = true;
+        user.isRequested = false;
+        await this.userRepository.save(user);
+
+        return {
+            message: `User account activated successfully with this username '${username}'`,
         };
     }
 }

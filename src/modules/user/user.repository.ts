@@ -51,6 +51,6 @@ export class UserRepository extends Repository<User> {
     }
 
     async allRequestForActiveUsers() {
-        return this.find({ where: { isRegistered: true } });
+        return this.find({ where: { isRequested: true } });
     }
 }

@@ -130,15 +130,7 @@ export class UserService {
         const users = await this.userRepository.allRequestForActiveUsers();
 
         const sanitizedUsers = users.map((user) => {
-            const {
-                password,
-                otp,
-                otpExpires,
-                resetToken,
-                resetTokenExpires,
-                twoFASecret,
-                ...sanitizedUser
-            } = user;
+            const { password, ...sanitizedUser } = user;
             return sanitizedUser;
         });
 
