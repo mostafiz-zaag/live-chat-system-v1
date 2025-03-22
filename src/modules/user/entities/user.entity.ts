@@ -1,4 +1,6 @@
 import {
+    BeforeInsert,
+    BeforeUpdate,
     Column,
     CreateDateColumn,
     Entity,
@@ -80,10 +82,10 @@ export class User {
     @UpdateDateColumn()
     updatedAt: Date;
 
-    // // Lifecycle Hooks to ensure correct isActive state
-    // @BeforeInsert()
-    // @BeforeUpdate()
-    // setActiveStatus() {
-    //     this.isActive = this.role === Role.ADMIN;
-    // }
+    // Lifecycle Hooks to ensure correct isActive state
+    @BeforeInsert()
+    @BeforeUpdate()
+    setActiveStatus() {
+        this.isActive = this.role === Role.ADMIN;
+    }
 }
