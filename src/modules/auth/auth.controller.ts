@@ -124,7 +124,7 @@ export class AuthController {
 
     // check user is active or not
     @HttpCode(200)
-    @Post(`${API_PREFIX}/auth/check-user`)
+    @Get(`${API_PREFIX}/auth/check-user`)
     async checkUser(@Body('username') username: string) {
         return this.authService.checkUserIsActive(username);
     }
