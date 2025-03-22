@@ -26,38 +26,35 @@ export class User {
     @Column({ type: 'enum', enum: Role, default: Role.AGENT })
     role: Role;
 
-    // Allow managers to have multiple departments
+    @Column({ default: false })
+    isActive: boolean; // <-- New isActive Column
+
     @Column({ type: 'simple-array', nullable: true })
     departments?: string[];
 
     @Column({ default: true })
     isTemporaryPassword: boolean;
 
-    // Agents must have a manager (CircularRelation Fix: nullable: true)
     @ManyToOne(() => User, (user) => user.agents, {
         nullable: true,
         onDelete: 'SET NULL',
     })
     manager?: User;
 
-    // Managers can have multiple agents
     @OneToMany(() => User, (user) => user.manager)
     agents?: User[];
 
-    // Managers can have multiple languages
     @Column({ type: 'simple-array', nullable: true })
     languages?: string[];
 
-    // Agents must have one language
     @Column({ nullable: true })
     language?: string;
 
-    // **OTP Verification Fields**
     @Column({ nullable: true })
-    otp?: string; // Stores OTP (hashed)
+    otp?: string;
 
     @Column({ nullable: true, type: 'timestamp' })
-    otpExpires?: Date; // OTP Expiration Time
+    otpExpires?: Date;
 
     @Column({ nullable: true })
     resetToken?: string;
@@ -66,17 +63,27 @@ export class User {
     resetTokenExpires?: Date;
 
     @Column({ nullable: true })
-    twoFASecret?: string; // Stores the base32 secret for 2FA
+    twoFASecret?: string;
 
     @Column({ default: false })
-    is2FAEnabled: boolean; // To track if 2FA is enabled for the user
+    is2FAEnabled: boolean;
 
     @Column({ default: false })
-    twoFAVerified: boolean; // To track if the user has verified their 2FA
+    twoFAVerified: boolean;
+
+    @Column({ default: false })
+    isRegistered?: boolean;
 
     @CreateDateColumn()
     createdAt: Date;
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    // // Lifecycle Hooks to ensure correct isActive state
+    // @BeforeInsert()
+    // @BeforeUpdate()
+    // setActiveStatus() {
+    //     this.isActive = this.role === Role.ADMIN;
+    // }
 }

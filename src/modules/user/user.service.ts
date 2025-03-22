@@ -125,4 +125,26 @@ export class UserService {
         }
         return this.userRepository.find();
     }
+
+    async allRequestForActiveUsers() {
+        const users = await this.userRepository.allRequestForActiveUsers();
+
+        const sanitizedUsers = users.map((user) => {
+            const {
+                password,
+                otp,
+                otpExpires,
+                resetToken,
+                resetTokenExpires,
+                twoFASecret,
+                ...sanitizedUser
+            } = user;
+            return sanitizedUser;
+        });
+
+        return {
+            message: 'All request for active users',
+            users: sanitizedUsers,
+        };
+    }
 }

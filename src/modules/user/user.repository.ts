@@ -18,7 +18,8 @@ export class UserRepository extends Repository<User> {
     }
 
     async findByUsername(username: string): Promise<User | null> {
-        return this.findOne({ where: { username } });
+        const user = await this.findOne({ where: { username } });
+        return user ? user : null; // Ensure it returns null if not found
     }
 
     async findByUsernameAndAdmin(username: string): Promise<User | null> {
@@ -47,5 +48,9 @@ export class UserRepository extends Repository<User> {
     async emailExists(email: string): Promise<boolean> {
         const count = await this.count({ where: { email } });
         return count > 0;
+    }
+
+    async allRequestForActiveUsers() {
+        return this.find({ where: { isRegistered: true } });
     }
 }
