@@ -3,3 +3,8 @@ export enum Role {
     MANAGER = 'manager',
     AGENT = 'agent',
 }
+
+export enum AgentStatus {
+    BUSY = 'busy',
+    AVAILABLE = 'ready',
+}

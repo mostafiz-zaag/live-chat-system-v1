@@ -1,5 +1,11 @@
 // src/modules/chat/entities/message.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import {
+    Column,
+    CreateDateColumn,
+    Entity,
+    ManyToOne,
+    PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Room } from './room.entity';
 
 @Entity()
@@ -13,7 +19,7 @@ export class Message {
     @Column()
     sender: string; // User or Agent ID
 
-    @Column()
+    @CreateDateColumn({ type: 'timestamp' })
     timestamp: Date;
 
     @ManyToOne(() => Room, (room) => room.messages)

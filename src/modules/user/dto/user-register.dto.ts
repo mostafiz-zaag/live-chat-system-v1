@@ -1,4 +1,5 @@
 import {
+    ArrayNotEmpty,
     IsArray,
     IsEmail,
     IsEnum,
@@ -8,7 +9,7 @@ import {
     IsString,
     ValidateIf,
 } from 'class-validator';
-import { Role } from '../../../enums/user-role';
+import { AgentStatus, Role } from '../../../enums/user-role';
 
 export class UserRegisterDto {
     @IsEmail({}, { message: 'Please provide a valid email address.' })
@@ -28,24 +29,28 @@ export class UserRegisterDto {
     @IsNotEmpty({ message: 'Username is required for managers and agents.' })
     username?: string;
 
-    // Allow multiple departments for Managers
-    @ValidateIf((o) => o.role === Role.MANAGER)
+    // Departments required for MANAGER and AGENT
+    @ValidateIf((o) => o.role === Role.MANAGER || o.role === Role.AGENT)
     @IsArray({ message: 'Departments must be an array of strings.' })
-    @IsNotEmpty({ message: 'Departments are required for managers.' })
+    @ArrayNotEmpty({ message: 'At least one department is required.' })
     departments?: string[];
 
-    @ValidateIf((o) => o.role === Role.MANAGER)
+    // Languages required for MANAGER and AGENT
+    @ValidateIf((o) => o.role === Role.MANAGER || o.role === Role.AGENT)
     @IsArray({ message: 'Languages must be an array of strings.' })
-    // @IsOptional()
+    @ArrayNotEmpty({ message: 'At least one language is required.' })
     languages?: string[];
 
     @ValidateIf((o) => o.role === Role.AGENT)
-    @IsString({ message: 'Language must be a valid string.' })
-    @IsNotEmpty({ message: 'Language is required for agents.' })
-    language?: string;
+    @IsEnum(AgentStatus, {
+        message: 'Status must be either busy or available.',
+    })
+    @IsOptional()
+    status?: AgentStatus = AgentStatus.BUSY;
 
+    // Manager ID required for AGENT only
     @ValidateIf((o) => o.role === Role.AGENT)
     @IsNumber({}, { message: 'Manager ID must be a valid number.' })
     @IsNotEmpty({ message: 'Manager is required for agents.' })
-    managerId: number;
+    managerId?: number;
 }
