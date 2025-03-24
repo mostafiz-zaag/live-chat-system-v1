@@ -1,6 +1,8 @@
 import {
     Body,
     Controller,
+    Get,
+    Param,
     Post,
     UploadedFile,
     UseInterceptors,
@@ -22,12 +24,13 @@ export class ChatController {
     @Post('leave-queue')
     @UsePipes(new ValidationPipe({ whitelist: true }))
     async leaveQueue(@Body() leaveChatDto: LeaveChatDto) {
-        const { userId } = leaveChatDto;
+        const userId = leaveChatDto.userId;
         console.log(
             `[LEAVE QUEUE] User ${userId} requested to leave the queue.`,
         );
 
         const chatRoom = await this.chatService.getWaitingRoomByUser(userId);
+
         if (!chatRoom) {
             return { message: `User ${userId} is not in the queue.` };
         }
@@ -35,35 +38,27 @@ export class ChatController {
         if (chatRoom.agentId) {
             chatRoom.userId = null;
             await this.chatService.updateRoom(chatRoom);
-
             return {
                 message: `User ${userId} has left the chat room and is no longer in the queue.`,
             };
         }
 
         await this.chatService.deleteRoom(chatRoom.id);
-        console.log(
-            `[LEAVE QUEUE] User ${userId} removed from the queue. Room ${chatRoom.id} deleted.`,
-        );
+        console.log(`[LEAVE QUEUE] User ${userId} removed from the queue.`);
 
         return {
             message: `User ${userId} successfully removed from the queue.`,
         };
     }
 
-    /**
-     * User leaves an ongoing chat session.
-     */
     @Post('leave-user-chat')
     @UsePipes(new ValidationPipe({ whitelist: true }))
     async leaveUserChat(@Body() leaveChatDto: LeaveChatDto) {
+        const userId = leaveChatDto.userId;
         console.log(
-            `[LEAVE USER CHAT] User ${leaveChatDto.userId} requested to leave chat.`,
+            `[LEAVE USER CHAT] User ${userId} requested to leave chat.`,
         );
-
-        const result = await this.chatService.leaveUserChat(
-            leaveChatDto.userId,
-        );
+        const result = await this.chatService.leaveUserChat(userId);
         return { message: result.message };
     }
 
@@ -78,7 +73,7 @@ export class ChatController {
         );
 
         const result = await this.chatService.leaveAgentChat(
-            leaveAgentChatDto.agentId,
+            +leaveAgentChatDto.agentId,
         );
         return {
             message: result.message,
@@ -114,6 +109,17 @@ export class ChatController {
             message: 'File uploaded successfully.',
             fileUrl: result.fileUrl,
             fileKey: result.fileKey,
+        };
+    }
+
+    @Get('/my-chat/agent/:agentId')
+    async getAgentChatRooms(@Param('agentId') agentId: number) {
+        const myChats = await this.chatService.getAssignedRooms(agentId);
+        const inQueue = await this.chatService.getQueuedRooms();
+
+        return {
+            myChats,
+            inQueue,
         };
     }
 }

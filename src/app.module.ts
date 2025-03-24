@@ -14,7 +14,7 @@ import { STATIC } from './constants/global.constant';
 import { MailModule } from './mail/mail.module';
 import { RequestMiddleware } from './middlewares/request.middleware';
 import { StaticFileCheckMiddleware } from './middlewares/static-file-check.middleware';
-import { AgentModule } from './modules/agents/agent.module';
+// import { AgentModule } from './modules/agents/agent.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BaseController } from './modules/base/base.controller';
 import { BaseService } from './modules/base/base.service';
@@ -37,7 +37,7 @@ import { SeederModule } from './seeder/seeder.module';
         ScheduleModule.forRoot(),
         CommonModule,
         SeederModule,
-        AgentModule,
+        // AgentModule,
         ChatModule,
         UserModule,
         NatsModule,

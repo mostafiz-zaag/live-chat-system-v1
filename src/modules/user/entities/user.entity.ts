@@ -86,6 +86,9 @@ export class User {
     })
     status: AgentStatus;
 
+    @Column({ default: 0 })
+    activeChatCount: number;
+
     @CreateDateColumn()
     createdAt: Date;
 

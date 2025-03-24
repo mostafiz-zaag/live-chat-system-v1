@@ -3,14 +3,14 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Agent } from '../agents/entities/agent.entity'; // Import the Agent entity
 import { S3ConfigService } from '../config/s3.config';
+import { UserRepository } from '../user/user.repository';
 import { ChatController } from './chat.controller';
 import { ChatRepository } from './chat.repository';
 import { ChatService } from './chat.service';
 import { Message } from './entities/message.entity';
 import { Room } from './entities/room.entity';
-import { AgentRepository } from '../agents/agent.repository';
-import { RoomRepository } from './repositories/room.repository';
 import { MessageRepository } from './repositories/message.repository';
+import { RoomRepository } from './repositories/room.repository';
 
 @Module({
     imports: [
@@ -22,9 +22,10 @@ import { MessageRepository } from './repositories/message.repository';
         ChatRepository,
         ChatService,
         S3ConfigService,
-        AgentRepository,
+        // AgentRepository,
         RoomRepository,
         MessageRepository,
+        UserRepository,
     ],
     exports: [ChatService],
 })

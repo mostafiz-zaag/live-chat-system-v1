@@ -1,16 +1,15 @@
-// src/modules/user/dto/request-assistance.dto.ts
+// request-assistance.dto.ts
 import { IsNotEmpty, IsString } from 'class-validator';
 
 export class RequestAssistanceDto {
-    @IsNotEmpty()
-    @IsString()
+    @IsString({ message: 'userId must be a string' })
     userId: string;
 
-    @IsNotEmpty()
-    @IsString()
+    @IsString({ message: 'language must be a string' })
+    @IsNotEmpty({ message: 'language is required' })
     language: string;
 
-    @IsNotEmpty()
-    @IsString()
+    @IsString({ message: 'department must be a string' })
+    @IsNotEmpty({ message: 'department is required' })
     department: string;
 }

@@ -18,17 +18,11 @@ export class UserRepository extends Repository<User> {
     }
 
     async findByUsername(username: string): Promise<User | null> {
-        const user = await this.findOne({ where: { username } });
-        return user ? user : null; // Ensure it returns null if not found
+        return this.findOne({ where: { username } });
     }
 
     async findByUsernameAndAdmin(username: string): Promise<User | null> {
-        return this.findOne({
-            where: {
-                username,
-                role: Role.ADMIN, // Check if the role is admin
-            },
-        });
+        return this.findOne({ where: { username, role: Role.ADMIN } });
     }
 
     async createUser(userData: Partial<User>): Promise<User> {
@@ -38,9 +32,7 @@ export class UserRepository extends Repository<User> {
 
     async getAgentsByManagerId(managerId: number): Promise<User[]> {
         return this.find({
-            where: {
-                manager: { id: managerId },
-            },
+            where: { manager: { id: managerId } },
             relations: ['manager'],
         });
     }
@@ -54,17 +46,15 @@ export class UserRepository extends Repository<User> {
         return this.find({ where: { isRequested: true } });
     }
 
-    // UserRepository.ts
-    // ✅ CORRECTED QUERY
     async findReadyMatchingAgent(
         language: string,
         department: string,
     ): Promise<User | null> {
         return this.createQueryBuilder('user')
             .where('user.role = :role', { role: Role.AGENT })
-            .andWhere('user.isActive = :status', { status: true }) // Ensure the agent is active
-            .andWhere(':language = ANY(user.languages)', { language }) // Correct syntax
-            .andWhere(':department = ANY(user.departments)', { department }) // Correct syntax
+            .andWhere('user.status = :status', { status: AgentStatus.READY })
+            .andWhere(':language = ANY(user.languages)', { language })
+            .andWhere(':department = ANY(user.departments)', { department })
             .getOne();
     }
 
@@ -78,7 +68,6 @@ export class UserRepository extends Repository<User> {
         return this.update({ id: agentId, role: Role.AGENT }, { status });
     }
 
-    // user.repository.ts
     async findReadyUnassignedAgent(
         language: string,
         department: string,
@@ -87,8 +76,18 @@ export class UserRepository extends Repository<User> {
             .where('user.role = :role', { role: Role.AGENT })
             .andWhere('user.status = :status', { status: AgentStatus.READY })
             .andWhere(':language = ANY(user.languages)', { language })
-            .andWhere('user.isAssigned = :assigned', { assigned: false })
             .andWhere(':department = ANY(user.departments)', { department })
+            .andWhere('user.isAssigned = :assigned', { assigned: false })
             .getOne();
+    }
+
+    async findReadyAgent(): Promise<User | null> {
+        return this.findOne({
+            where: {
+                role: Role.AGENT,
+                status: AgentStatus.READY,
+                isAssigned: false,
+            },
+        });
     }
 }
