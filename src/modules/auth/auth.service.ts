@@ -312,6 +312,20 @@ export class AuthService {
         newUser.language = userDto.language;
         newUser.twoFASecret = secret.base32; // Save the 2FA secret
 
+        // If the user is an agent, associate with a manager
+        if (userDto.role === 'agent') {
+            if (!userDto.managerId) {
+                throw new Error('Manager ID is required for agents.');
+            }
+            const manager = await this.userRepository.findById(
+                userDto.managerId,
+            );
+            if (!manager || manager.role !== 'manager') {
+                throw new Error('Manager not found.');
+            }
+            newUser.manager = manager; // Assign the manager to the agent
+        }
+
         // Save the user
         const savedUser = await this.userRepository.save(newUser);
 
