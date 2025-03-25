@@ -1,0 +1,31 @@
+1.Add agent in queue:
+    curl -X POST http://localhost:3000/agent/join -H "Content-Type: application/json" -d '{"agentId": "agent1"}'
+2.Remove agent from queue:
+    curl -X POST http://localhost:3000/agent/leave -H "Content-Type: application/json" -d '{"agentId": "agent1"}'
+3.Get all agents in queue:
+    curl -X GET http://localhost:3000/agents
+
+4.ws://localhost:3000
+    {
+      "roomId": "room_user1_agent10",
+      "userId": "agent10"
+    }
+    event: newMessage
+    ack: joinRoom
+5.ws://localhost:3000
+    {
+      "roomId": "room_user1_agent10",
+      "userId": "user1"
+    }
+    event: newMessage
+    ack: joinRoom
+
+6.Send message:
+    {
+      "roomId": "105",
+      "sender": "agent",
+      "message": "Hello Agent!"
+    }
+    ack: sendMessage
+
+
