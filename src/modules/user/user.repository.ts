@@ -90,4 +90,11 @@ export class UserRepository extends Repository<User> {
             },
         });
     }
+
+    async getAllManagers(): Promise<User[]> {
+        return this.find({
+            where: { role: Role.MANAGER },
+            relations: ['agents'],
+        });
+    }
 }
