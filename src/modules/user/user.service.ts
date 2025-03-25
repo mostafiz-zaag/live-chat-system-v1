@@ -77,8 +77,7 @@ export class UserService {
 
     async agentJoinQueue(agentName: string) {
         const agent = await this.userRepository.findByUsername(agentName);
-        if (!agent)
-            throw new NotFoundException(`Agent \"${agentName}\" not found.`);
+        if (!agent) throw new NotFoundException(`${agentName} not found.`);
 
         if (agent.status === AgentStatus.READY) {
             return {
@@ -112,11 +111,29 @@ export class UserService {
             return {
                 username: agentName,
                 roomNo: queuedRoom.id,
-                message: `Agent ${agentName} assigned to room ${queuedRoom.id}.`,
+                message: `Agent ${agentName} assigned to roomNo: '${queuedRoom.id}'`,
             };
         }
 
         return { message: `Agent ${agentName} is now ready.` };
+    }
+
+    async agentBusy(agentName: string) {
+        const agent = await this.userRepository.findByUsername(agentName);
+
+        if (!agent) throw new NotFoundException(`${agentName} not found.`);
+
+        if (agent.status === AgentStatus.BUSY) {
+            return {
+                message: `Agent: ${agentName} is already busy.`,
+            };
+        }
+
+        await this.userRepository.updateAgentStatus(agent.id, AgentStatus.BUSY);
+
+        return {
+            message: `Agent: ${agentName} is now busy.`,
+        };
     }
 
     async finishAgentChat(agentId: number) {
@@ -165,5 +182,28 @@ export class UserService {
         return this.userRepository.find({
             where: { role: Role.AGENT, status: AgentStatus.BUSY },
         });
+    }
+
+    // get all manager with relation agent
+    async getAllManagers() {
+        const managers = await this.userRepository.getAllManagers();
+
+        // Map over the managers and agents to filter out sensitive information
+        const filteredManagers = managers.map((manager) => {
+            // Remove sensitive fields
+            const { password, twoFASecret, otp, resetToken, ...managerData } =
+                manager;
+
+            // Filter agents as well
+            const filteredAgents = manager.agents?.map((agent) => {
+                const { password, twoFASecret, otp, resetToken, ...agentData } =
+                    agent;
+                return agentData; // Return filtered agent data without sensitive information
+            });
+
+            return { ...managerData, agents: filteredAgents }; // Return manager data without sensitive fields
+        });
+
+        return filteredManagers;
     }
 }
