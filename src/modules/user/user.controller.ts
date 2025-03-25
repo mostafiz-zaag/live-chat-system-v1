@@ -37,6 +37,11 @@ export class UserController {
         return this.usersService.agentJoinQueue(username);
     }
 
+    @Post('/agent/busy')
+    async agentBusy(@Body('username') username: string) {
+        return this.usersService.agentBusy(username);
+    }
+
     @Get('/agents/all-busy')
     async getAllBusyAgents() {
         return {
@@ -64,5 +69,14 @@ export class UserController {
     @Post('/agents/finish-chat')
     async finishChat(@Body('agentId') agentId: number) {
         return this.usersService.finishAgentChat(agentId);
+    }
+
+    // Manager endpoints
+    @Get('/manager/all')
+    async getAllManagers() {
+        return {
+            message: 'All managers fetched successfully.',
+            managers: await this.usersService.getAllManagers(),
+        };
     }
 }
