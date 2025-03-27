@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { AgentStatus, Role } from 'src/enums/user-role';
 import { ChatService } from '../chat/chat.service';
+import { MessageRepository } from '../chat/repositories/message.repository';
 import { RoomRepository } from '../chat/repositories/room.repository';
 import { NatsService } from '../nats/nats.service';
 import { UserRepository } from './user.repository';
@@ -14,6 +15,7 @@ export class UserService {
         private readonly natsService: NatsService,
         private readonly userRepository: UserRepository,
         private readonly roomRepository: RoomRepository,
+        private readonly messageRepository: MessageRepository,
     ) {}
 
     // user.service.ts
@@ -140,8 +142,7 @@ export class UserService {
         const agent = await this.userRepository.findOne({
             where: { id: agentId, role: Role.AGENT },
         });
-        if (!agent)
-            throw new NotFoundException(`Agent \"${agentId}\" not found.`);
+        if (!agent) throw new NotFoundException(`Agent ${agentId} not found.`);
 
         agent.activeChatCount = Math.max(agent.activeChatCount - 1, 0);
         agent.isAssigned = agent.activeChatCount > 0;
@@ -205,5 +206,74 @@ export class UserService {
         });
 
         return filteredManagers;
+    }
+
+    async queueListForManager(managerId: number) {
+        const manager = await this.userRepository.findById(managerId);
+        if (manager.role !== 'manager')
+            throw new NotFoundException(`Manager not found.`);
+
+        const queue = await this.getQueueSize();
+
+        // check manager languages and departments are match with queue languages and departments
+        const filteredQueue = queue.waitingRooms.filter((room) => {
+            return (
+                manager.languages.includes(room.language) &&
+                manager.departments.includes(room.department)
+            );
+        });
+
+        return filteredQueue;
+    }
+
+    async getAgentsChatByManager(managerId: number) {
+        const manager = await this.userRepository.findOne({
+            where: { id: managerId, role: Role.MANAGER },
+            relations: ['agents'], // Fetch agents under the manager
+        });
+
+        console.log('Manager ', manager);
+
+        if (!manager) {
+            throw new NotFoundException(
+                `Manager with ID ${managerId} not found.`,
+            );
+        }
+
+        const agents = manager.agents; // Get all agents for this manager
+
+        // Fetch all rooms assigned to the agents
+        const agentRooms = [];
+
+        for (const agent of agents) {
+            const rooms = await this.roomRepository.find({
+                where: { agentId: agent.id }, // Fetch rooms assigned to this agent
+            });
+
+            // For each room, get the chat history
+            const roomWithHistory = [];
+
+            for (const room of rooms) {
+                const messages = await this.messageRepository.find({
+                    where: { room: { id: room.id } }, // Fetch messages for this room
+                });
+
+                roomWithHistory.push({
+                    roomId: room.id,
+                    messages, // Chat history for this room
+                });
+            }
+
+            agentRooms.push({
+                agentId: agent.id,
+                agentName: agent.username,
+                rooms: roomWithHistory, // Rooms with their messages
+            });
+        }
+
+        return {
+            message: `Chats for agents under Manager ${managerId} fetched successfully.`,
+            agentRooms,
+        };
     }
 }

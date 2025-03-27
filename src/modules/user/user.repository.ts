@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { AgentStatus, Role } from 'src/enums/user-role';
 import { DataSource, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -89,6 +89,21 @@ export class UserRepository extends Repository<User> {
                 isAssigned: false,
             },
         });
+    }
+
+    async getAgentsByManager(managerId: number): Promise<User[]> {
+        const manager = await this.findOne({
+            where: { id: managerId, role: Role.MANAGER },
+            relations: ['agents'], // Get all agents related to this manager
+        });
+
+        if (!manager) {
+            throw new NotFoundException(
+                `Manager with ID ${managerId} not found.`,
+            );
+        }
+
+        return manager.agents; // Return the agents
     }
 
     async getAllManagers(): Promise<User[]> {

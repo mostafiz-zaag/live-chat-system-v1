@@ -1,5 +1,5 @@
 // src/modules/user/user.controller.ts
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { Role } from 'src/enums/user-role';
 import { ChatService } from '../chat/chat.service';
 import { RequestAssistanceDto } from './dto/request-assistance.dto';
@@ -78,5 +78,20 @@ export class UserController {
             message: 'All managers fetched successfully.',
             managers: await this.usersService.getAllManagers(),
         };
+    }
+
+    @Get('/manager/in-queue/:managerId')
+    async getManagerQueue(@Param('managerId') managerId: number) {
+        const queue = await this.usersService.queueListForManager(managerId);
+        return {
+            message: 'Manager queue fetched successfully.',
+            queueSize: queue.length,
+            queue,
+        };
+    }
+
+    @Get('/manager/chats/:managerId')
+    async getAgentsChatByManager(@Param('managerId') managerId: number) {
+        return this.usersService.getAgentsChatByManager(managerId);
     }
 }

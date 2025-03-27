@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChatModule } from '../chat/chat.module';
+import { MessageRepository } from '../chat/repositories/message.repository';
 import { RoomRepository } from '../chat/repositories/room.repository';
 import { NatsModule } from '../nats/nats.module';
 import { User } from './entities/user.entity';
@@ -15,7 +16,7 @@ import { UserService } from './user.service';
         NatsModule, // Ensure `NATS_SERVICE` is available
     ],
     controllers: [UserController],
-    providers: [UserService, UserRepository, RoomRepository],
+    providers: [UserService, UserRepository, RoomRepository, MessageRepository], // Add `RoomRepository` and `MessageRepository` to providers
     exports: [UserService, UserRepository], // Export `UserService` if needed elsewhere
 })
 export class UserModule {}
