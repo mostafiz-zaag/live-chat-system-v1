@@ -90,7 +90,7 @@ export class UserController {
         };
     }
 
-    @Get('/manager/chats/:managerId')
+    @Get('/manager/my-chats/:managerId')
     async getAgentsChatByManager(@Param('managerId') managerId: number) {
         return this.usersService.getAgentsChatByManager(managerId);
     }

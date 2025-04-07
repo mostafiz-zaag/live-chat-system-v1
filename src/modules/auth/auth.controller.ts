@@ -1,6 +1,7 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
     HttpCode,
     Param,
@@ -15,6 +16,7 @@ import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
 import { AdminLoginDto } from './dto/admin.login';
 import { ChangeUsernameDto } from './dto/change-username.dto';
+import { CheckTotpDto } from './dto/check-totp.dto';
 import { LoginDto } from './dto/login.dto';
 
 @Controller('/')
@@ -65,15 +67,19 @@ export class AuthController {
     ) {
         try {
             // Generate the 2FA secret and QR code
-            const { qrCodeUrlInS3, secret, qrCodeUrl } =
+            const { secret, qrCodeUrl, qrCodeBuffer } =
                 await this.authService.generate2FASecret(username);
 
+            res.setHeader('Content-Type', 'image/png');
+            res.setHeader(
+                'Content-Disposition',
+                'inline; filename="qrcode.png"',
+            ); // Optional: to suggest a filename
+
+            res.header('secret', secret);
+
             // Return the QR code URL (hosted on S3) and the secret for frontend usage
-            return res.json({
-                qrCodeUrlInS3, // The URL of the uploaded QR code image on S3
-                secret, // The 2FA secret saved in the database
-                qrCodeUrl, // The URL to be used in the authenticator app (otpauth:// link)
-            });
+            return res.send(qrCodeBuffer);
         } catch (error) {
             res.status(500).json({
                 message: 'Error generating 2FA',
@@ -101,6 +107,7 @@ export class AuthController {
         return this.authService.changeUsername(chnageUsernameDto);
     }
 
+    // Login with 2FA
     @HttpCode(200)
     @Post(`${API_PREFIX}/verify-2fa`)
     async verify2FA(
@@ -139,7 +146,6 @@ export class AuthController {
     }
 
     // Lost my device
-
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/lost-device`)
     async lostDevice(@Body('username') username: string) {
@@ -158,4 +164,24 @@ export class AuthController {
     async activeAccount(@Body('username') username: string) {
         return this.authService.activeAccount(username);
     }
+
+    // ADMIN ACCESS
+
+    @HttpCode(200)
+    @Delete(`${API_PREFIX}/auth/user/delete/:username`)
+    async deleteUser(
+        @Param('username') username: string,
+        @Body() checkTotpDto: CheckTotpDto,
+    ) {
+        return this.authService.deleteUser(username, checkTotpDto);
+    }
+
+    // see user details
+    @HttpCode(200)
+    @Get(`${API_PREFIX}/auth/user/:username`)
+    async getUserDetails(@Param('username') username: string) {
+        return this.authService.getUserDetails(username);
+    }
+
+    // show all manager list
 }

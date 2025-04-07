@@ -19,6 +19,7 @@ import { UserService } from '../user/user.service';
 import { AdminLoginDto } from './dto/admin.login';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ChangeUsernameDto } from './dto/change-username.dto';
+import { CheckTotpDto } from './dto/check-totp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @Injectable()
@@ -289,6 +290,15 @@ export class AuthService {
             throw new Error('User already exists with that username');
         }
 
+        // Check if email already exists
+        const existingEmail = await this.userRepository.findByEmail(
+            userDto.email,
+        );
+
+        if (existingEmail) {
+            throw new Error('User already exists with that email');
+        }
+
         // Hash the password
         const hashedPassword = await bcrypt.hash(userDto.password, 10);
 
@@ -298,7 +308,7 @@ export class AuthService {
         );
 
         // Generate the QR Code URL using the secret
-        const qrCodeUrl = `otpauth://totp/${userDto.username}?secret=${secret.base32}&issuer=YOUR_COMPANY_NAME`;
+        const qrCodeUrl = `otpauth://totp/${userDto.username}?secret=${secret.base32}&issuer=${COMPANY_NAME}`;
 
         // Create a new user entity based on the role
         const newUser = new User();
@@ -360,6 +370,22 @@ export class AuthService {
         await this.userRepository.save(user);
 
         return jwt_secret;
+    }
+
+    async check2FACode(username: string, token: string) {
+        const user = await this.userRepository.findByUsername(username); // Fetch user from DB
+        if (!user) throw new NotFoundException('User not found');
+
+        // Check if the token matches
+        const isValid = await this.authenticatorService.verifyToken(
+            user.twoFASecret,
+            token,
+        );
+        if (!isValid) {
+            throw new Error('Invalid token');
+        }
+
+        return isValid;
     }
 
     async login(username: string, token: string): Promise<any> {
@@ -515,28 +541,30 @@ export class AuthService {
         user.twoFASecret = secret.base32;
         await this.userRepository.save(user); // Save the user with the updated secret
 
-        // Step 1: Upload the QR code buffer to S3
-        const s3 = this.s3ConfigService.getS3Instance();
-        const bucketName = this.s3ConfigService.getBucketName();
-        const fileName = `${user.username}-qrcode.png`; // Customize the file name as needed
+        // return qrCodeBuffer;
 
-        const uploadParams = {
-            Bucket: bucketName,
-            Key: fileName,
-            Body: qrCodeBuffer, // The QR code image buffer
-            ContentType: 'image/png', // Content type of the image
-            ACL: 'public-read', // Optional, make the file publicly accessible
-        };
+        // // Step 1: Upload the QR code buffer to S3
+        // const s3 = this.s3ConfigService.getS3Instance();
+        // const bucketName = this.s3ConfigService.getBucketName();
+        // const fileName = `${user.username}-qrcode.png`; // Customize the file name as needed
+
+        // const uploadParams = {
+        //     Bucket: bucketName,
+        //     Key: fileName,
+        //     Body: qrCodeBuffer, // The QR code image buffer
+        //     ContentType: 'image/png', // Content type of the image
+        //     ACL: 'public-read', // Optional, make the file publicly accessible
+        // };
 
         try {
-            // Upload the QR code image to S3
-            const uploadResult = await s3.upload(uploadParams).promise();
-            const qrCodeUrlInS3 = uploadResult.Location; // The public URL of the uploaded image
+            // // Upload the QR code image to S3
+            // const uploadResult = await s3.upload(uploadParams).promise();
+            // const qrCodeUrlInS3 = uploadResult.Location; // The public URL of the uploaded image
 
-            // Step 2: Return the QR code URL and the secret to frontend
+            // // Step 2: Return the QR code URL and the secret to frontend
             return {
-                // qrCodeBuffer, // The QR code image buffer (useful if you want to send it as a response)
-                qrCodeUrlInS3, // The URL of the uploaded QR code image on S3
+                qrCodeBuffer, // The QR code image buffer (useful if you want to send it as a response)
+                // qrCodeUrlInS3, // The URL of the uploaded QR code image on S3
                 secret: secret.base32, // The 2FA secret for saving in the user's profile
                 qrCodeUrl, // The URL for the authenticator app (otpauth:// link)
             };
@@ -626,5 +654,43 @@ export class AuthService {
         return {
             message: `User account activated successfully with this username '${username}'`,
         };
+    }
+
+    // ADMIN ACCESS
+    async deleteUser(
+        username: string,
+        checkTotpDto: CheckTotpDto,
+    ): Promise<any> {
+        const user = await this.userRepository.findByUsername(username);
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        // check TOTP
+
+        const verified = await this.check2FACode(
+            checkTotpDto.username,
+            checkTotpDto.token,
+        );
+
+        if (!verified) {
+            throw new BadRequestException('Invalid TOTP token');
+        }
+
+        await this.userRepository.delete({ id: user.id });
+
+        return {
+            message: `User with username '${username}' deleted successfully`,
+        };
+    }
+
+    async getUserDetails(username: string): Promise<any> {
+        const user = await this.userRepository.findByUsername(username);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
     }
 }
