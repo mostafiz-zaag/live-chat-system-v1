@@ -556,21 +556,17 @@ export class AuthService {
         //     ACL: 'public-read', // Optional, make the file publicly accessible
         // };
 
-        try {
-            // // Upload the QR code image to S3
-            // const uploadResult = await s3.upload(uploadParams).promise();
-            // const qrCodeUrlInS3 = uploadResult.Location; // The public URL of the uploaded image
+        // // Upload the QR code image to S3
+        // const uploadResult = await s3.upload(uploadParams).promise();
+        // const qrCodeUrlInS3 = uploadResult.Location; // The public URL of the uploaded image
 
-            // // Step 2: Return the QR code URL and the secret to frontend
-            return {
-                qrCodeBuffer, // The QR code image buffer (useful if you want to send it as a response)
-                // qrCodeUrlInS3, // The URL of the uploaded QR code image on S3
-                secret: secret.base32, // The 2FA secret for saving in the user's profile
-                qrCodeUrl, // The URL for the authenticator app (otpauth:// link)
-            };
-        } catch (error) {
-            throw new Error('Error uploading to S3: ' + error.message);
-        }
+        // // Step 2: Return the QR code URL and the secret to frontend
+        return {
+            qrCodeBuffer, // The QR code image buffer (useful if you want to send it as a response)
+            // qrCodeUrlInS3, // The URL of the uploaded QR code image on S3
+            secret: secret.base32, // The 2FA secret for saving in the user's profile
+            qrCodeUrl, // The URL for the authenticator app (otpauth:// link)
+        };
     }
 
     async checkUserIsActive(username: string): Promise<any> {
