@@ -70,16 +70,16 @@ export class AuthController {
             const { secret, qrCodeUrl, qrCodeBuffer } =
                 await this.authService.generate2FASecret(username);
 
-            res.setHeader('Content-Type', 'image/png');
-            res.setHeader(
-                'Content-Disposition',
-                'inline; filename="qrcode.png"',
-            ); // Optional: to suggest a filename
+            // res.setHeader('Content-Type', 'image/png');
+            // res.setHeader(
+            //     'Content-Disposition',
+            //     'inline; filename="qrcode.png"',
+            // ); // Optional: to suggest a filename
 
             res.header('secret', secret);
 
             // Return the QR code URL (hosted on S3) and the secret for frontend usage
-            return res.send(qrCodeBuffer);
+            return res.send(qrCodeBuffer.toString('base64')); // Send the QR code image as a base64 string
         } catch (error) {
             res.status(500).json({
                 message: 'Error generating 2FA',
