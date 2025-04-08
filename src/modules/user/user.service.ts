@@ -24,27 +24,46 @@ export class UserService {
         language: string,
         department: string,
     ) {
+        // Step 1: Create a new room for the user
         const chatRoom = await this.roomRepository.createRoomForUser(
             userId,
-            language, // ✅ Store as array
-            department, // ✅ Store as array
+            language, // Store as an array
+            department, // Store as an array
         );
 
+        // Step 2: Find an available agent who can handle the request
         const agent = await this.userRepository.findReadyUnassignedAgent(
             language,
             department,
         );
 
+        console.log('Agent found: ', agent);
+
         if (agent) {
+            // Step 3: Assign agent to the room
             await this.roomRepository.assignAgentToRoom(chatRoom.id, agent.id);
+
+            // Increase the agent's active chat count as they are now assigned to the room
+            agent.activeChatCount += 1; // Increase active chat count to handle multiple chats
             agent.isAssigned = true;
+
+            // Save the updated agent data
             await this.userRepository.save(agent);
 
+            // Emit the agent assignment event (e.g., notifying the system)
+            await this.natsClient
+                .emit('agent.assigned', {
+                    agentId: agent.id,
+                    roomId: chatRoom.id,
+                })
+                .toPromise();
+
             return {
-                message: `Agent ${agent.username} auto-assigned.`,
+                message: `Agent ${agent.username} auto-assigned to room ${chatRoom.id}`,
                 room: chatRoom,
             };
         } else {
+            // If no agent is available, add the user to the queue and wait for an agent
             await this.natsClient
                 .emit('user.request', {
                     userId,
