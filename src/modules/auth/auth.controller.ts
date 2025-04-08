@@ -81,7 +81,7 @@ export class AuthController {
             // Return the QR code URL (hosted on S3) and the secret for frontend usage
             return res.send(qrCodeBuffer.toString('base64')); // Send the QR code image as a base64 string
         } catch (error) {
-            res.status(500).json({
+            res.status(400).json({
                 message: 'Error generating 2FA',
                 error: error.message,
             });
@@ -121,15 +121,16 @@ export class AuthController {
         return isVerified
             ? {
                   message: '2FA activated successfully',
-                  access_token: isVerified,
+                  user: isVerified.user,
+                  access_token: isVerified.access_token,
               }
             : { message: 'Invalid 2FA token' };
     }
 
     // check user is active or not
     @HttpCode(200)
-    @Get(`${API_PREFIX}/auth/check-user`)
-    async checkUser(@Body('username') username: string) {
+    @Get(`${API_PREFIX}/auth/check-user/:username`)
+    async checkUser(@Param('username') username: string) {
         return this.authService.checkUserIsActive(username);
     }
 
