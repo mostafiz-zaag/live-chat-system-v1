@@ -1,12 +1,13 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
     Get,
     HttpCode,
     Param,
+    Patch,
     Post,
-    Put,
     Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -114,17 +115,25 @@ export class AuthController {
         @Body('username') username: string,
         @Body('token') token: string,
     ) {
-        const isVerified = await this.authService.verify2FAToken(
-            username,
-            token,
-        );
-        return isVerified
-            ? {
-                  message: '2FA activated successfully',
-                  user: isVerified.user,
-                  access_token: isVerified.access_token,
-              }
-            : { message: 'Invalid 2FA token' };
+        try {
+            // Attempt 2FA verification
+            const result = await this.authService.verify2FAToken(
+                username,
+                token,
+            );
+
+            return result
+                ? {
+                      message: '2FA activated successfully',
+                      user: result.user,
+                      access_token: result.access_token,
+                  }
+                : { message: 'Invalid 2FA token' };
+        } catch (error) {
+            throw new BadRequestException(
+                error.message || 'Something went wrong',
+            );
+        }
     }
 
     // check user is active or not
@@ -161,7 +170,7 @@ export class AuthController {
 
     // Account active
     @HttpCode(200)
-    @Put(`${API_PREFIX}/auth/active-account`)
+    @Patch(`${API_PREFIX}/auth/active-account`)
     async activeAccount(@Body('username') username: string) {
         return this.authService.activeAccount(username);
     }
@@ -183,6 +192,4 @@ export class AuthController {
     async getUserDetails(@Param('username') username: string) {
         return this.authService.getUserDetails(username);
     }
-
-    // show all manager list
 }
