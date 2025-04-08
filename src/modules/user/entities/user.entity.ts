@@ -1,6 +1,5 @@
 import {
     BeforeInsert,
-    BeforeUpdate,
     Column,
     CreateDateColumn,
     Entity,
@@ -28,7 +27,7 @@ export class User {
     @Column({ type: 'enum', enum: Role, default: Role.AGENT })
     role: Role;
 
-    @Column({ default: false })
+    @Column({ default: false, type: 'boolean' })
     isActive: boolean; // <-- New isActive Column
 
     @Column({ type: 'text', array: true, nullable: true }) // ✅ Corrected clearly
@@ -97,7 +96,7 @@ export class User {
 
     // Lifecycle Hooks to ensure correct isActive state
     @BeforeInsert()
-    @BeforeUpdate()
+    // @BeforeUpdate()
     setActiveStatus() {
         this.isActive = this.role === Role.ADMIN;
     }
