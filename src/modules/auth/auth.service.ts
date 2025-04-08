@@ -350,6 +350,7 @@ export class AuthService {
     // Step 3: Verify 2FA Token
     async verify2FAToken(username: string, token: string): Promise<any> {
         const user = await this.userRepository.findByUsername(username); // Fetch user from DB
+
         if (!user) throw new NotFoundException('User not found');
 
         // Check if the token matches
@@ -357,8 +358,9 @@ export class AuthService {
             user.twoFASecret,
             token,
         );
+
         if (!isValid) {
-            throw new Error('Invalid token');
+            throw new BadRequestException('Invalid token');
         }
 
         // generate jwt token
@@ -369,7 +371,11 @@ export class AuthService {
         user.twoFAVerified = true;
         await this.userRepository.save(user);
 
-        return jwt_secret;
+        const { password, ...userWithoutPassword } = user;
+        return {
+            user: userWithoutPassword, // Returning user without password
+            access_token: jwt_secret, // Returning the access token
+        };
     }
 
     async check2FACode(username: string, token: string) {
@@ -516,7 +522,14 @@ export class AuthService {
         user.username = chnageUsernameDto.newUsername;
 
         await this.userRepository.save(user);
-        return this.generate2FASecret(chnageUsernameDto.newUsername);
+        const ans = await this.generate2FASecret(chnageUsernameDto.newUsername);
+        console.log('ans', ans);
+        return {
+            message: `Username changed successfully to '${user.username}'`,
+            qrCodeBuffer: ans.qrCodeBuffer.toString('base64'),
+            qrCodeUrl: ans.qrCodeUrl,
+            secret: ans.secret,
+        };
     }
 
     // generate 2FA secret
@@ -572,14 +585,20 @@ export class AuthService {
     async checkUserIsActive(username: string): Promise<any> {
         const user = await this.userRepository.findByUsername(username);
 
+        console.log('🔍 Found user:', user);
+
         if (!user) {
-            throw new NotFoundException('User not found');
+            return {
+                status: 'not_found',
+                message: 'User not found',
+            };
         }
 
         return {
-            isActive: user.isActive
-                ? `Your account is active`
-                : `Your account is not active`,
+            status: user.isActive ? 'active' : 'in_active',
+            message: user.isActive
+                ? 'Your account is active'
+                : 'Your account is not active',
         };
     }
 
@@ -645,7 +664,9 @@ export class AuthService {
 
         user.isActive = true;
         user.isRequested = false;
-        await this.userRepository.save(user);
+        const res = await this.userRepository.save(user);
+
+        console.log('User account activated:', res);
 
         return {
             message: `User account activated successfully with this username '${username}'`,
