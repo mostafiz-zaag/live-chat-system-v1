@@ -71,7 +71,7 @@ export class UserController {
         return this.usersService.finishAgentChat(agentId);
     }
 
-    // Manager endpoints
+    // Admin panal: Manager access endpoints
     @Get('/manager/all')
     async getAllManagers() {
         return {
@@ -93,5 +93,10 @@ export class UserController {
     @Get('/manager/my-chats/:managerId')
     async getAgentsChatByManager(@Param('managerId') managerId: number) {
         return this.usersService.getAgentsChatByManager(managerId);
+    }
+
+    @Get('/agent/all')
+    async getAllAgent() {
+        return this.usersService.getAllAgents();
     }
 }
