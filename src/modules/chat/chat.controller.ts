@@ -2,6 +2,7 @@ import {
     Body,
     Controller,
     Get,
+    HttpCode,
     Param,
     Post,
     UploadedFile,
@@ -10,18 +11,21 @@ import {
     ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { API_PREFIX } from 'src/constants/project.constant';
 import { ChatService } from './chat.service';
 import { LeaveAgentChatDto, LeaveChatDto } from './dto/leave-chat.dto';
 import { UploadFileDto } from './dto/upload-file.dto';
 
-@Controller('chat')
+@Controller('/')
 export class ChatController {
     constructor(private readonly chatService: ChatService) {}
 
     /**
      * User leaves the queue before being assigned to an agent.
      */
-    @Post('leave-queue')
+
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/chat/leave-queue`)
     @UsePipes(new ValidationPipe({ whitelist: true }))
     async leaveQueue(@Body() leaveChatDto: LeaveChatDto) {
         const userId = leaveChatDto.userId;
@@ -51,7 +55,7 @@ export class ChatController {
         };
     }
 
-    @Post('leave-user-chat')
+    @Post(`${API_PREFIX}/chat/leave-user-chat`)
     @UsePipes(new ValidationPipe({ whitelist: true }))
     async leaveUserChat(@Body() leaveChatDto: LeaveChatDto) {
         const userId = leaveChatDto.userId;
@@ -65,7 +69,8 @@ export class ChatController {
     /**
      * Agent leaves an ongoing chat session.
      */
-    @Post('leave-agent-chat')
+    @HttpCode(200)
+    @Post(`${API_PREFIX}/chat/leave-agent-chat`)
     @UsePipes(new ValidationPipe({ whitelist: true }))
     async leaveAgentChat(@Body() leaveAgentChatDto: LeaveAgentChatDto) {
         console.log(
@@ -85,7 +90,7 @@ export class ChatController {
     /**
      * Uploads a file to the chat session.
      */
-    @Post('upload')
+    @Post(`${API_PREFIX}/file/upload-file`)
     @UseInterceptors(FileInterceptor('file'))
     @UsePipes(new ValidationPipe({ whitelist: true }))
     async uploadFile(
@@ -112,7 +117,7 @@ export class ChatController {
         };
     }
 
-    @Get('/my-chat/agent/:agentId')
+    @Get(`${API_PREFIX}/my-chat/agent/:agentId`)
     async getAgentChatRooms(@Param('agentId') agentId: number) {
         const myChats = await this.chatService.getAssignedRooms(agentId);
         const inQueue = await this.chatService.getQueuedRooms();
@@ -120,6 +125,15 @@ export class ChatController {
         return {
             myChats,
             inQueue,
+        };
+    }
+
+    @Get(`${API_PREFIX}/chat/history/:roomId`)
+    async getChatHistory(@Param('roomId') roomId: number) {
+        const chatHistory = await this.chatService.getChatHistory(roomId);
+        return {
+            message: 'Chat history fetched successfully.',
+            chatHistory,
         };
     }
 }

@@ -1,3 +1,4 @@
+import { Room } from 'src/modules/chat/entities/room.entity';
 import {
     BeforeInsert,
     Column,
@@ -94,10 +95,25 @@ export class User {
     @UpdateDateColumn()
     updatedAt: Date;
 
+    @Column({ nullable: true })
+    lastLogin?: Date;
+
+    @Column({ nullable: true })
+    requestedType?: string;
+
+    @Column({ nullable: true })
+    requestedDate?: Date;
+
+    @Column({ nullable: true })
+    message?: string;
+
     // Lifecycle Hooks to ensure correct isActive state
     @BeforeInsert()
     // @BeforeUpdate()
     setActiveStatus() {
         this.isActive = this.role === Role.ADMIN;
     }
+
+    @OneToMany(() => Room, (room) => room.user)
+    rooms: Room[];
 }

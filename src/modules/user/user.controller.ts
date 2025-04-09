@@ -1,18 +1,19 @@
 // src/modules/user/user.controller.ts
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { API_PREFIX } from 'src/constants/project.constant';
 import { Role } from 'src/enums/user-role';
 import { ChatService } from '../chat/chat.service';
 import { RequestAssistanceDto } from './dto/request-assistance.dto';
 import { UserService } from './user.service';
 
-@Controller('users')
+@Controller('/')
 export class UserController {
     constructor(
         private readonly usersService: UserService,
         private readonly chatService: ChatService,
     ) {}
 
-    @Post('request-assistance')
+    @Post(`${API_PREFIX}/users/request-assistance`)
     async requestAssistance(@Body() dto: RequestAssistanceDto) {
         return this.usersService.requestAssistance(
             dto.userId,
@@ -21,28 +22,28 @@ export class UserController {
         );
     }
 
-    @Get('/queue-size')
+    @Get(`${API_PREFIX}/users/queue-size`)
     async getQueueSize() {
         return this.usersService.getQueueSize();
     }
 
-    @Get('/all')
+    @Get(`${API_PREFIX}/users/all`)
     async getAllUsers(@Query('role') role?: Role) {
         return this.usersService.getAllUsers(role);
     }
 
     // Agent endpoints
-    @Post('/agent/ready')
+    @Post(`${API_PREFIX}/users/agent/ready`)
     async agentReady(@Body('username') username: string) {
         return this.usersService.agentJoinQueue(username);
     }
 
-    @Post('/agent/busy')
+    @Post(`${API_PREFIX}/users/agent/busy`)
     async agentBusy(@Body('username') username: string) {
         return this.usersService.agentBusy(username);
     }
 
-    @Get('/agents/all-busy')
+    @Get(`${API_PREFIX}/users/agents/all-busy`)
     async getAllBusyAgents() {
         return {
             message: 'All busy agents fetched successfully.',
@@ -50,7 +51,7 @@ export class UserController {
         };
     }
 
-    @Get('/agents/all')
+    @Get(`${API_PREFIX}/users/agents/all`)
     async getAllAgents() {
         return {
             message: 'All agents fetched successfully.',
@@ -58,7 +59,7 @@ export class UserController {
         };
     }
 
-    @Get('/agents/all-ready')
+    @Get(`${API_PREFIX}/users/agents/all-ready`)
     async getAllReadyAgents() {
         return {
             message: 'All ready agents fetched successfully.',
@@ -66,13 +67,13 @@ export class UserController {
         };
     }
 
-    @Post('/agents/finish-chat')
+    @Post(`${API_PREFIX}/users/agent/finish-chat`)
     async finishChat(@Body('agentId') agentId: number) {
         return this.usersService.finishAgentChat(agentId);
     }
 
-    // Admin panal: Manager access endpoints
-    @Get('/manager/all')
+    //---------------------------- Admin panal: Manager access endpoints---------------------------
+    @Get(`${API_PREFIX}/users/manager/all`)
     async getAllManagers() {
         return {
             message: 'All managers fetched successfully.',
@@ -80,7 +81,7 @@ export class UserController {
         };
     }
 
-    @Get('/manager/in-queue/:managerId')
+    @Get(`${API_PREFIX}/users/manager/in-queue/:managerId`)
     async getManagerQueue(@Param('managerId') managerId: number) {
         const queue = await this.usersService.queueListForManager(managerId);
         return {
@@ -90,12 +91,34 @@ export class UserController {
         };
     }
 
-    @Get('/manager/my-chats/:managerId')
+    @Get(`${API_PREFIX}/users/manager/chats/:managerId`)
     async getAgentsChatByManager(@Param('managerId') managerId: number) {
         return this.usersService.getAgentsChatByManager(managerId);
     }
 
-    @Get('/agent/all')
+    @Get(`${API_PREFIX}/users/manager/rooms/:managerId`)
+    async getAllRoomsByManager(
+        @Param('managerId') managerId: number,
+        @Query('agentName') agentName?: string, // Optional query parameter for agent name
+    ) {
+        const rooms = await this.usersService.getAllRoomsByManager(
+            managerId,
+            agentName,
+        );
+        return rooms;
+    }
+
+    @Get(`${API_PREFIX}/users/agents/manager/:managerId`)
+    async getAllAgentNamesWithStatus(@Param('managerId') managerId: number) {
+        const result =
+            await this.usersService.getAllAgentNamesWithStatusByManager(
+                managerId,
+            );
+        return result;
+    }
+
+    // -------------------------------- Admin panal: Manager access endpoints end ---------------------------
+    @Get(`${API_PREFIX}/users/agents/all`)
     async getAllAgent() {
         return this.usersService.getAllAgents();
     }

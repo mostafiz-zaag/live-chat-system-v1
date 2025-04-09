@@ -251,8 +251,6 @@ export class UserService {
             relations: ['agents'], // Fetch agents under the manager
         });
 
-        console.log('Manager ', manager);
-
         if (!manager) {
             throw new NotFoundException(
                 `Manager with ID ${managerId} not found.`,
@@ -267,32 +265,160 @@ export class UserService {
         for (const agent of agents) {
             const rooms = await this.roomRepository.find({
                 where: { agentId: agent.id }, // Fetch rooms assigned to this agent
+                relations: ['user'],
             });
 
-            // For each room, get the chat history
-            const roomWithHistory = [];
+            // For each room, get the last message, first message time, and user details
+            const roomWithDetails = [];
 
             for (const room of rooms) {
-                const messages = await this.messageRepository.find({
-                    where: { room: { id: room.id } }, // Fetch messages for this room
+                // Get the latest (last) message from the room
+                const lastMessage = await this.messageRepository.findOne({
+                    where: { room: { id: room.id } },
+                    order: { timestamp: 'DESC' }, // Get the last message by timestamp
                 });
 
-                roomWithHistory.push({
+                // Get the first message (earliest) from the room
+                const firstMessage = await this.messageRepository.findOne({
+                    where: { room: { id: room.id } },
+                    order: { timestamp: 'ASC' }, // Get the first message by timestamp
+                });
+
+                roomWithDetails.push({
                     roomId: room.id,
-                    messages, // Chat history for this room
+                    userId: room.userId, // The userId of the person in the room
+                    lastMessage: lastMessage
+                        ? lastMessage.content
+                        : 'No messages yet', // Last message content
+                    firstMessageTime: firstMessage
+                        ? firstMessage.timestamp
+                        : null, // Timestamp of the first message
                 });
             }
 
             agentRooms.push({
                 agentId: agent.id,
                 agentName: agent.username,
-                rooms: roomWithHistory, // Rooms with their messages
+                rooms: roomWithDetails, // Rooms with last messages and first message time
             });
         }
 
         return {
             message: `Chats for agents under Manager ${managerId} fetched successfully.`,
             agentRooms,
+        };
+    }
+
+    async getAllRoomsByManager(managerId: number, agentName?: string) {
+        const manager = await this.userRepository.findOne({
+            where: { id: managerId, role: Role.MANAGER },
+            relations: ['agents'], // Fetch agents under the manager
+        });
+
+        if (!manager) {
+            throw new NotFoundException(
+                `Manager with ID ${managerId} not found.`,
+            );
+        }
+
+        const agents = manager.agents; // Get all agents for this manager
+
+        // If an agent name is provided, filter the agents by name
+        const filteredAgents = agentName
+            ? agents.filter(
+                  (agent) =>
+                      agent.username.toLowerCase() === agentName.toLowerCase(),
+              )
+            : agents;
+
+        if (filteredAgents.length === 0) {
+            throw new NotFoundException(
+                `No agents found with the name: ${agentName}`,
+            );
+        }
+
+        // Fetch all rooms assigned to the filtered agents
+        const allRooms = [];
+
+        for (const agent of filteredAgents) {
+            const rooms = await this.roomRepository.find({
+                where: { agentId: agent.id }, // Fetch rooms assigned to this agent
+                relations: ['user'],
+            });
+
+            // For each room, get the last message, first message time, and user details
+            for (const room of rooms) {
+                // Get the latest (last) message from the room
+                const lastMessage = await this.messageRepository.findOne({
+                    where: { room: { id: room.id } },
+                    order: { timestamp: 'DESC' }, // Get the last message by timestamp
+                });
+
+                // Get the first message (earliest) from the room
+                const firstMessage = await this.messageRepository.findOne({
+                    where: { room: { id: room.id } },
+                    order: { timestamp: 'ASC' }, // Get the first message by timestamp
+                });
+
+                allRooms.push({
+                    roomId: room.id,
+                    userId: room.userId, // The userId of the person in the room
+                    lastMessage: lastMessage
+                        ? lastMessage.content
+                        : 'No messages yet', // Last message content
+                    firstMessageTime: firstMessage
+                        ? firstMessage.timestamp
+                        : null, // Timestamp of the first message
+                });
+            }
+        }
+
+        return {
+            message: `Rooms for agents under Manager ${managerId} fetched successfully.`,
+            rooms: allRooms, // Return all rooms assigned to this manager's agents
+        };
+    }
+
+    async getMessagesByRoomId(roomId: number) {
+        // Check if the room exists
+        const room = await this.roomRepository.findOne({
+            where: { id: roomId },
+        });
+
+        if (!room) {
+            throw new Error(`Room with ID ${roomId} not found.`);
+        }
+
+        // Fetch all messages for the given roomId
+        const messages = await this.messageRepository.find({
+            where: { room: { id: roomId } },
+            order: { timestamp: 'ASC' }, // Optional: Order messages by timestamp (ascending)
+        });
+
+        return messages;
+    }
+
+    async getAllAgentNamesWithStatusByManager(managerId: number) {
+        const manager = await this.userRepository.findOne({
+            where: { id: managerId, role: Role.MANAGER },
+            relations: ['agents'], // Fetch agents under the manager
+        });
+
+        if (!manager) {
+            throw new NotFoundException(
+                `Manager with ID ${managerId} not found.`,
+            );
+        }
+
+        // Fetch the agent's username and status
+        const agentsWithStatus = manager.agents.map((agent) => ({
+            username: agent.username,
+            status: agent.status, // Agent's current status
+        }));
+
+        return {
+            message: `Agent names and statuses for Manager ${managerId} fetched successfully.`,
+            agentsWithStatus, // Return the list of agents with their status
         };
     }
 }

@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
 import { addMinutes } from 'date-fns';
 import { COMPANY_NAME } from 'src/constants/global.constant';
+import { UserRequestType } from 'src/enums/user-request-type.enum';
 import { ResourceNotFoundException } from 'src/exceptions';
 import { MailService } from 'src/mail/mail.service';
 import { AuthenticatorService } from 'src/security/authenticator.service';
@@ -21,6 +22,8 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ChangeUsernameDto } from './dto/change-username.dto';
 import { CheckTotpDto } from './dto/check-totp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ForgotUserNameDto } from './dto/forgot-username.dto';
+import { LostMyDeviceDto } from './dto/lost-my-device.dto';
 
 @Injectable()
 export class AuthService {
@@ -522,13 +525,15 @@ export class AuthService {
         user.username = chnageUsernameDto.newUsername;
 
         await this.userRepository.save(user);
-        const ans = await this.generate2FASecret(chnageUsernameDto.newUsername);
-        console.log('ans', ans);
+        const result = await this.generate2FASecret(
+            chnageUsernameDto.newUsername,
+        );
+        console.log('result', result);
         return {
             message: `Username changed successfully to '${user.username}'`,
-            qrCodeBuffer: ans.qrCodeBuffer.toString('base64'),
-            qrCodeUrl: ans.qrCodeUrl,
-            secret: ans.secret,
+            qrCodeBuffer: result.qrCodeBuffer.toString('base64'),
+            qrCodeUrl: result.qrCodeUrl,
+            secret: result.secret,
         };
     }
 
@@ -617,13 +622,25 @@ export class AuthService {
         };
     }
 
-    async lostDevice(username: string): Promise<any> {
-        const user = await this.userRepository.findByUsername(username);
+    async lostDevice(lostMyDevice: LostMyDeviceDto): Promise<any> {
+        const user = await this.userRepository.findByUsername(
+            lostMyDevice.username,
+        );
+
+        if (lostMyDevice.email) {
+            if (user.email !== lostMyDevice.email) {
+                throw new BadRequestException(
+                    'Email does not match with username',
+                );
+            }
+        }
 
         if (!user) {
             throw new NotFoundException('User not found');
         }
         user.isRequested = true;
+        user.requestedType = UserRequestType.LOST_DEVICE;
+        user.requestedDate = new Date();
 
         await this.userRepository.save(user);
 
@@ -632,16 +649,21 @@ export class AuthService {
         };
     }
 
-    async forgotUsername(email: string): Promise<any> {
-        const user = await this.userRepository.findByEmail(email);
-
-        console.log('🔍 Found user:', user);
+    async forgotUsername(forgotUserNameDto: ForgotUserNameDto): Promise<any> {
+        const user = await this.userRepository.findByEmail(
+            forgotUserNameDto.email,
+        );
 
         if (!user) {
             throw new NotFoundException('User not found');
         }
+        if (forgotUserNameDto.message) {
+            user.message = forgotUserNameDto.message;
+        }
 
         user.isRequested = true;
+        user.requestedType = UserRequestType.FORGOT_USERNAME;
+        user.requestedDate = new Date();
         await this.userRepository.save(user);
 
         return {

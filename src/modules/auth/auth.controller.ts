@@ -18,7 +18,9 @@ import { AuthService } from './auth.service';
 import { AdminLoginDto } from './dto/admin.login';
 import { ChangeUsernameDto } from './dto/change-username.dto';
 import { CheckTotpDto } from './dto/check-totp.dto';
+import { ForgotUserNameDto } from './dto/forgot-username.dto';
 import { LoginDto } from './dto/login.dto';
+import { LostMyDeviceDto } from './dto/lost-my-device.dto';
 
 @Controller('/')
 export class AuthController {
@@ -155,18 +157,20 @@ export class AuthController {
         return await this.userService.allRequestForActiveUsers();
     }
 
-    // Lost my device
+    // --------------------------Lost my device-----------------------------
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/lost-device`)
-    async lostDevice(@Body('username') username: string) {
-        return this.authService.lostDevice(username);
+    async lostDevice(@Body() lostMydevice: LostMyDeviceDto) {
+        return this.authService.lostDevice(lostMydevice);
     }
 
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/forgot-username`)
-    async forgotUsername(@Body('email') email: string) {
-        return this.authService.forgotUsername(email);
+    async forgotUsername(@Body() forgotUserNameDto: ForgotUserNameDto) {
+        return this.authService.forgotUsername(forgotUserNameDto);
     }
+
+    // ---------------------------Lost my device-----------------------------
 
     // Account active
     @HttpCode(200)
