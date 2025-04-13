@@ -1,4 +1,6 @@
+import { AccountStatus } from 'src/enums/account-status.enum';
 import { Room } from 'src/modules/chat/entities/room.entity';
+import { Faq } from 'src/modules/FAQ/faq.entity';
 import {
     BeforeInsert,
     Column,
@@ -10,6 +12,7 @@ import {
     UpdateDateColumn,
 } from 'typeorm';
 import { AgentStatus, Role } from '../../../enums/user-role';
+import { Exclude } from 'class-transformer';
 
 @Entity()
 export class User {
@@ -86,6 +89,13 @@ export class User {
     })
     status: AgentStatus;
 
+    @Column({
+        type: 'enum',
+        enum: AccountStatus,
+        default: AccountStatus.ACTIVE, // Default clearly set to ACTIVE
+    })
+    accountStatus: string;
+
     @Column({ default: 0 })
     activeChatCount: number;
 
@@ -114,6 +124,10 @@ export class User {
         this.isActive = this.role === Role.ADMIN;
     }
 
+    @OneToMany(() => Faq, (faq) => faq.createdBy)
+    faqs: Faq[];
+
     @OneToMany(() => Room, (room) => room.user)
     rooms: Room[];
+
 }

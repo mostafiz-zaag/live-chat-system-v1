@@ -11,6 +11,7 @@ import { UserRequestType } from 'src/enums/user-request-type.enum';
 import { ResourceNotFoundException } from 'src/exceptions';
 import { MailService } from 'src/mail/mail.service';
 import { AuthenticatorService } from 'src/security/authenticator.service';
+import { CustomPrincipal } from '../../payloads/custom.principle';
 import { JwtTokenUtil } from '../../utils/jwt-token.util';
 import { SecurityUtil } from '../../utils/security.util';
 import { S3ConfigService } from '../config/s3.config';
@@ -45,7 +46,7 @@ export class AuthService {
         console.log('🔑 Entered Password:', password);
         console.log('🔒 Stored Hashed Password:', user.password);
 
-        const isPasswordValid = await this.securityUtil.verifyPassword(
+        const isPasswordValid = await this.securityUtil.matchPassword(
             password,
             user.password,
         );
@@ -145,9 +146,17 @@ export class AuthService {
             };
         }
 
+        console.log('user role....', user.role);
+
         // ✅ **Step 5: Generate JWT Token for Normal Login**
-        const payload = { sub: user.id, email: user.email, role: user.role };
-        const accessToken = this.jwtTokenUtil.generateToken(payload);
+        const customerPrincipal = new CustomPrincipal(
+            user.id,
+            user.username,
+            user.role,
+            user.isActive,
+        );
+
+        const accessToken = this.jwtTokenUtil.generateToken(customerPrincipal);
 
         return {
             message: 'Login successful.',
@@ -189,7 +198,7 @@ export class AuthService {
 
         // **STEP 4: Hash New Password**
         const hashedPassword =
-            await this.securityUtil.hashPassword(newPassword);
+            await this.securityUtil.encryptPassword(newPassword);
 
         // **STEP 5: Update User Password and Set `isTemporaryPassword = false`**
         user.password = hashedPassword;
@@ -285,6 +294,12 @@ export class AuthService {
     // }
 
     async register(userDto: any): Promise<any> {
+        const loggedInUser = await this.securityUtil.getLoggedInUser();
+
+        if (loggedInUser.roleAliases !== 'admin') {
+            throw new BadRequestException('Only admin can register users');
+        }
+
         // Check if user already exists
         const existingUser = await this.userRepository.findByUsername(
             userDto.username,
@@ -354,6 +369,10 @@ export class AuthService {
     async verify2FAToken(username: string, token: string): Promise<any> {
         const user = await this.userRepository.findByUsername(username); // Fetch user from DB
 
+        if (!user.isActive) {
+            throw new BadRequestException('User account is not active');
+        }
+
         if (!user) throw new NotFoundException('User not found');
 
         // Check if the token matches
@@ -367,7 +386,15 @@ export class AuthService {
         }
 
         // generate jwt token
-        const jwt_secret = this.jwtTokenUtil.generateToken(user);
+        const customerPrincipal = new CustomPrincipal(
+            user.id,
+            user.username,
+            user.role,
+            user.isActive,
+        );
+
+        const jwt_secret =
+            await this.jwtTokenUtil.generateToken(customerPrincipal);
 
         // Enable 2FA and mark the user as verified
         user.is2FAEnabled = true;
@@ -417,7 +444,15 @@ export class AuthService {
         );
 
         // 3. Generate JWT token if everything is valid
-        const jwtToken = await this.jwtTokenUtil.generateToken(user);
+        const customerPrincipal = new CustomPrincipal(
+            user.id,
+            user.username,
+            user.role,
+            user.isActive,
+        );
+
+        const jwtToken =
+            await this.jwtTokenUtil.generateToken(customerPrincipal);
 
         return {
             message: 'Login successful',
@@ -492,7 +527,7 @@ export class AuthService {
         }
 
         // check password
-        const isPasswordValid = await this.securityUtil.verifyPassword(
+        const isPasswordValid = await this.securityUtil.matchPassword(
             dto.password,
             user.password,
         );

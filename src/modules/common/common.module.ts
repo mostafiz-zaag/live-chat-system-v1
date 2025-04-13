@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { envConfig } from 'src/configs/env.config';
 import { JwtTokenUtil } from '../../utils/jwt-token.util';
 import { SecurityUtil } from '../../utils/security.util';
+import { CustomLoggerService } from '../../logging/logger.service';
 
 @Module({
     imports: [
@@ -11,7 +12,7 @@ import { SecurityUtil } from '../../utils/security.util';
             signOptions: { expiresIn: envConfig.JWT_EXPIRED },
         }),
     ],
-    providers: [JwtTokenUtil, SecurityUtil],
+    providers: [JwtTokenUtil, SecurityUtil, CustomLoggerService],
     exports: [JwtTokenUtil, SecurityUtil],
 })
 export class CommonModule {}

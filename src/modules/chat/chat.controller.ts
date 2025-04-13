@@ -117,13 +117,21 @@ export class ChatController {
         };
     }
 
-    @Get(`${API_PREFIX}/my-chat/agent/:agentId`)
+    @Get(`${API_PREFIX}/chat/my-chat/agent/:agentId`)
     async getAgentChatRooms(@Param('agentId') agentId: number) {
         const myChats = await this.chatService.getAssignedRooms(agentId);
-        const inQueue = await this.chatService.getQueuedRooms();
 
         return {
+            message: 'Agent chat successfully.',
             myChats,
+        };
+    }
+
+    @Get(`${API_PREFIX}/agent/in-queue/:agentId`)
+    async getAgentInQueue(@Param('agentId') agentId: number) {
+        const inQueue = await this.chatService.getQueuedRooms();
+        return {
+            message: 'Agent in queue successfully.',
             inQueue,
         };
     }

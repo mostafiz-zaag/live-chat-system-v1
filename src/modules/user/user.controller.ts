@@ -67,8 +67,8 @@ export class UserController {
         };
     }
 
-    @Post(`${API_PREFIX}/users/agent/finish-chat`)
-    async finishChat(@Body('agentId') agentId: number) {
+    @Post(`${API_PREFIX}/users/agent/finish-chat/:agentId`)
+    async finishChat(@Param('agentId') agentId: number) {
         return this.usersService.finishAgentChat(agentId);
     }
 
@@ -122,4 +122,30 @@ export class UserController {
     async getAllAgent() {
         return this.usersService.getAllAgents();
     }
+
+    // ------------------------------Agent endpoints--------------------------------
+
+    @Get(`${API_PREFIX}/users/agent/in-queue/:agentId`)
+    async getAgentInQueue(@Param('agentId') agentId: number) {
+        const inQueue = await this.usersService.queueListForAgent(agentId);
+        return {
+            message: 'Agent in queue successfully.',
+            inQueue,
+        };
+    }
+
+    // -------------------------------FAQ endpoints--------------------------------
+
+    // @Post(`${API_PREFIX}/faq/agent/create-faq/:agentId`)
+    // async createFAQ(
+    //     @Body('sentence') sentence: string,
+    //     @Param('agentId') agentId: number,
+    // ) {
+    //     return await this.usersService.createFAQByAgent(agentId, sentence);
+    // }
+
+    // @Get(`${API_PREFIX}/faqs/agent/:agentId`)
+    // async getAllFAQs(@Param('agentId') agentId: number) {
+    //     return await this.usersService.getAllFAQsByAgent(agentId);
+    // }
 }

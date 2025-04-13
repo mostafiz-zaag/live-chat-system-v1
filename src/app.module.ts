@@ -20,6 +20,7 @@ import { BaseController } from './modules/base/base.controller';
 import { BaseService } from './modules/base/base.service';
 import { ChatGateway } from './modules/chat/chat.gateway';
 import { ChatModule } from './modules/chat/chat.module';
+import { FaqModule } from './modules/FAQ/faq.module';
 import { NatsModule } from './modules/nats/nats.module';
 import { UserModule } from './modules/user/user.module';
 import { SeederModule } from './seeder/seeder.module';
@@ -44,6 +45,7 @@ import { SeederModule } from './seeder/seeder.module';
         EventEmitterModule.forRoot(),
         AuthModule,
         MailModule,
+        FaqModule,
     ],
     controllers: [BaseController],
     providers: [

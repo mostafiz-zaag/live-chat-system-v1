@@ -11,7 +11,7 @@ import {
     Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { API_PREFIX } from 'src/constants/project.constant';
+import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { UserRegisterDto } from '../user/dto/user-register.dto';
 import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
@@ -22,7 +22,7 @@ import { ForgotUserNameDto } from './dto/forgot-username.dto';
 import { LoginDto } from './dto/login.dto';
 import { LostMyDeviceDto } from './dto/lost-my-device.dto';
 
-@Controller('/')
+@Controller(`/`)
 export class AuthController {
     userRepository: any;
     constructor(
@@ -38,7 +38,7 @@ export class AuthController {
 
     // @UseGuards(JwtAuthGuard, RolesGuard)
     // @Roles(Role.ADMIN)
-    @Post(`${API_PREFIX}/auth/register`)
+    @Post(`${API_SECURED_PREFIX}/auth/register`)
     async register(@Body() registerDto: UserRegisterDto) {
         return this.authService.register(registerDto);
     }
@@ -63,7 +63,7 @@ export class AuthController {
     // google authentification
 
     // Endpoint to generate 2FA secret and return the QR code URL
-    @Get(`${API_PREFIX}/generate-2fa/:username`)
+    @Get(`${API_PREFIX}/auth/generate-2fa/:username`)
     async generate2FA(
         @Param('username') username: string,
         @Res() res: Response,
@@ -112,7 +112,7 @@ export class AuthController {
 
     // Login with 2FA
     @HttpCode(200)
-    @Post(`${API_PREFIX}/verify-2fa`)
+    @Post(`${API_PREFIX}/auth/verify-2fa`)
     async verify2FA(
         @Body('username') username: string,
         @Body('token') token: string,

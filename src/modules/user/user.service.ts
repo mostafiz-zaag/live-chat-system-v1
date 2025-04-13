@@ -245,6 +245,24 @@ export class UserService {
         return filteredQueue;
     }
 
+    async queueListForAgent(agentId: number) {
+        const agent = await this.userRepository.findById(agentId);
+        if (agent.role !== 'agent')
+            throw new NotFoundException(`Agent not found.`);
+
+        const queue = await this.getQueueSize();
+
+        // check agent languages and departments are match with queue languages and departments
+        const filteredQueue = queue.waitingRooms.filter((room) => {
+            return (
+                agent.languages.includes(room.language) &&
+                agent.departments.includes(room.department)
+            );
+        });
+
+        return filteredQueue;
+    }
+
     async getAgentsChatByManager(managerId: number) {
         const manager = await this.userRepository.findOne({
             where: { id: managerId, role: Role.MANAGER },
@@ -421,4 +439,39 @@ export class UserService {
             agentsWithStatus, // Return the list of agents with their status
         };
     }
+
+    // ///
+    // async createFAQByAgent(agentId: number, sentence: string) {
+    //     const agent = await this.userRepository.findOne({
+    //         where: { id: agentId, role: Role.AGENT },
+    //     });
+    //     if (!agent) {
+    //         throw new NotFoundException(`Agent with ID ${agentId} not found.`);
+    //     }
+
+    //     if (!agent.faqs) {
+    //         agent.faqs = []; // Initialize faqs if not already
+    //     }
+
+    //     agent.faqs.push(sentence); // Assuming agent.faqs is an array
+    //     await this.userRepository.save(agent); // Save the updated agent data
+
+    //     return {
+    //         message: `FAQ created successfully by Agent ${agent.username}.`,
+    //     };
+    // }
+
+    // async getAllFAQsByAgent(agentId: number) {
+    //     const agent = await this.userRepository.findOne({
+    //         where: { id: agentId, role: Role.AGENT },
+    //     });
+    //     if (!agent) {
+    //         throw new NotFoundException(`Agent with ID ${agentId} not found.`);
+    //     }
+
+    //     return {
+    //         message: `FAQs retrieved successfully for Agent ${agent.username}.`,
+    //         faqs: agent.faqs, // Return the FAQs associated with the agent
+    //     };
+    // }
 }
