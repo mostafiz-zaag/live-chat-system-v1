@@ -7,9 +7,11 @@ import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
 import { addMinutes } from 'date-fns';
 import { COMPANY_NAME } from 'src/constants/global.constant';
+import { UserRequestType } from 'src/enums/user-request-type.enum';
 import { ResourceNotFoundException } from 'src/exceptions';
 import { MailService } from 'src/mail/mail.service';
 import { AuthenticatorService } from 'src/security/authenticator.service';
+import { CustomPrincipal } from '../../payloads/custom.principle';
 import { JwtTokenUtil } from '../../utils/jwt-token.util';
 import { SecurityUtil } from '../../utils/security.util';
 import { S3ConfigService } from '../config/s3.config';
@@ -19,7 +21,10 @@ import { UserService } from '../user/user.service';
 import { AdminLoginDto } from './dto/admin.login';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ChangeUsernameDto } from './dto/change-username.dto';
+import { CheckTotpDto } from './dto/check-totp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ForgotUserNameDto } from './dto/forgot-username.dto';
+import { LostMyDeviceDto } from './dto/lost-my-device.dto';
 
 @Injectable()
 export class AuthService {
@@ -41,7 +46,7 @@ export class AuthService {
         console.log('🔑 Entered Password:', password);
         console.log('🔒 Stored Hashed Password:', user.password);
 
-        const isPasswordValid = await this.securityUtil.verifyPassword(
+        const isPasswordValid = await this.securityUtil.matchPassword(
             password,
             user.password,
         );
@@ -141,9 +146,17 @@ export class AuthService {
             };
         }
 
+        console.log('user role....', user.role);
+
         // ✅ **Step 5: Generate JWT Token for Normal Login**
-        const payload = { sub: user.id, email: user.email, role: user.role };
-        const accessToken = this.jwtTokenUtil.generateToken(payload);
+        const customerPrincipal = new CustomPrincipal(
+            user.id,
+            user.username,
+            user.role,
+            user.isActive,
+        );
+
+        const accessToken = this.jwtTokenUtil.generateToken(customerPrincipal);
 
         return {
             message: 'Login successful.',
@@ -185,7 +198,7 @@ export class AuthService {
 
         // **STEP 4: Hash New Password**
         const hashedPassword =
-            await this.securityUtil.hashPassword(newPassword);
+            await this.securityUtil.encryptPassword(newPassword);
 
         // **STEP 5: Update User Password and Set `isTemporaryPassword = false`**
         user.password = hashedPassword;
@@ -281,12 +294,27 @@ export class AuthService {
     // }
 
     async register(userDto: any): Promise<any> {
+        const loggedInUser = await this.securityUtil.getLoggedInUser();
+
+        if (loggedInUser.roleAliases !== 'admin') {
+            throw new BadRequestException('Only admin can register users');
+        }
+
         // Check if user already exists
         const existingUser = await this.userRepository.findByUsername(
             userDto.username,
         );
         if (existingUser) {
             throw new Error('User already exists with that username');
+        }
+
+        // Check if email already exists
+        const existingEmail = await this.userRepository.findByEmail(
+            userDto.email,
+        );
+
+        if (existingEmail) {
+            throw new Error('User already exists with that email');
         }
 
         // Hash the password
@@ -298,7 +326,7 @@ export class AuthService {
         );
 
         // Generate the QR Code URL using the secret
-        const qrCodeUrl = `otpauth://totp/${userDto.username}?secret=${secret.base32}&issuer=YOUR_COMPANY_NAME`;
+        const qrCodeUrl = `otpauth://totp/${userDto.username}?secret=${secret.base32}&issuer=${COMPANY_NAME}`;
 
         // Create a new user entity based on the role
         const newUser = new User();
@@ -311,6 +339,20 @@ export class AuthService {
         newUser.languages = userDto.languages || [];
         newUser.language = userDto.language;
         newUser.twoFASecret = secret.base32; // Save the 2FA secret
+
+        // If the user is an agent, associate with a manager
+        if (userDto.role === 'agent') {
+            if (!userDto.managerId) {
+                throw new Error('Manager ID is required for agents.');
+            }
+            const manager = await this.userRepository.findById(
+                userDto.managerId,
+            );
+            if (!manager || manager.role !== 'manager') {
+                throw new Error('Manager not found.');
+            }
+            newUser.manager = manager; // Assign the manager to the agent
+        }
 
         // Save the user
         const savedUser = await this.userRepository.save(newUser);
@@ -326,6 +368,48 @@ export class AuthService {
     // Step 3: Verify 2FA Token
     async verify2FAToken(username: string, token: string): Promise<any> {
         const user = await this.userRepository.findByUsername(username); // Fetch user from DB
+
+        if (!user.isActive) {
+            throw new BadRequestException('User account is not active');
+        }
+
+        if (!user) throw new NotFoundException('User not found');
+
+        // Check if the token matches
+        const isValid = await this.authenticatorService.verifyToken(
+            user.twoFASecret,
+            token,
+        );
+
+        if (!isValid) {
+            throw new BadRequestException('Invalid token');
+        }
+
+        // generate jwt token
+        const customerPrincipal = new CustomPrincipal(
+            user.id,
+            user.username,
+            user.role,
+            user.isActive,
+        );
+
+        const jwt_secret =
+            await this.jwtTokenUtil.generateToken(customerPrincipal);
+
+        // Enable 2FA and mark the user as verified
+        user.is2FAEnabled = true;
+        user.twoFAVerified = true;
+        await this.userRepository.save(user);
+
+        const { password, ...userWithoutPassword } = user;
+        return {
+            user: userWithoutPassword, // Returning user without password
+            access_token: jwt_secret, // Returning the access token
+        };
+    }
+
+    async check2FACode(username: string, token: string) {
+        const user = await this.userRepository.findByUsername(username); // Fetch user from DB
         if (!user) throw new NotFoundException('User not found');
 
         // Check if the token matches
@@ -337,15 +421,7 @@ export class AuthService {
             throw new Error('Invalid token');
         }
 
-        // generate jwt token
-        const jwt_secret = this.jwtTokenUtil.generateToken(user);
-
-        // Enable 2FA and mark the user as verified
-        user.is2FAEnabled = true;
-        user.twoFAVerified = true;
-        await this.userRepository.save(user);
-
-        return jwt_secret;
+        return isValid;
     }
 
     async login(username: string, token: string): Promise<any> {
@@ -368,7 +444,15 @@ export class AuthService {
         );
 
         // 3. Generate JWT token if everything is valid
-        const jwtToken = await this.jwtTokenUtil.generateToken(user);
+        const customerPrincipal = new CustomPrincipal(
+            user.id,
+            user.username,
+            user.role,
+            user.isActive,
+        );
+
+        const jwtToken =
+            await this.jwtTokenUtil.generateToken(customerPrincipal);
 
         return {
             message: 'Login successful',
@@ -443,7 +527,7 @@ export class AuthService {
         }
 
         // check password
-        const isPasswordValid = await this.securityUtil.verifyPassword(
+        const isPasswordValid = await this.securityUtil.matchPassword(
             dto.password,
             user.password,
         );
@@ -476,7 +560,16 @@ export class AuthService {
         user.username = chnageUsernameDto.newUsername;
 
         await this.userRepository.save(user);
-        return this.generate2FASecret(chnageUsernameDto.newUsername);
+        const result = await this.generate2FASecret(
+            chnageUsernameDto.newUsername,
+        );
+        console.log('result', result);
+        return {
+            message: `Username changed successfully to '${user.username}'`,
+            qrCodeBuffer: result.qrCodeBuffer.toString('base64'),
+            qrCodeUrl: result.qrCodeUrl,
+            secret: result.secret,
+        };
     }
 
     // generate 2FA secret
@@ -501,47 +594,51 @@ export class AuthService {
         user.twoFASecret = secret.base32;
         await this.userRepository.save(user); // Save the user with the updated secret
 
-        // Step 1: Upload the QR code buffer to S3
-        const s3 = this.s3ConfigService.getS3Instance();
-        const bucketName = this.s3ConfigService.getBucketName();
-        const fileName = `${user.username}-qrcode.png`; // Customize the file name as needed
+        // return qrCodeBuffer;
 
-        const uploadParams = {
-            Bucket: bucketName,
-            Key: fileName,
-            Body: qrCodeBuffer, // The QR code image buffer
-            ContentType: 'image/png', // Content type of the image
-            ACL: 'public-read', // Optional, make the file publicly accessible
+        // // Step 1: Upload the QR code buffer to S3
+        // const s3 = this.s3ConfigService.getS3Instance();
+        // const bucketName = this.s3ConfigService.getBucketName();
+        // const fileName = `${user.username}-qrcode.png`; // Customize the file name as needed
+
+        // const uploadParams = {
+        //     Bucket: bucketName,
+        //     Key: fileName,
+        //     Body: qrCodeBuffer, // The QR code image buffer
+        //     ContentType: 'image/png', // Content type of the image
+        //     ACL: 'public-read', // Optional, make the file publicly accessible
+        // };
+
+        // // Upload the QR code image to S3
+        // const uploadResult = await s3.upload(uploadParams).promise();
+        // const qrCodeUrlInS3 = uploadResult.Location; // The public URL of the uploaded image
+
+        // // Step 2: Return the QR code URL and the secret to frontend
+        return {
+            qrCodeBuffer, // The QR code image buffer (useful if you want to send it as a response)
+            // qrCodeUrlInS3, // The URL of the uploaded QR code image on S3
+            secret: secret.base32, // The 2FA secret for saving in the user's profile
+            qrCodeUrl, // The URL for the authenticator app (otpauth:// link)
         };
-
-        try {
-            // Upload the QR code image to S3
-            const uploadResult = await s3.upload(uploadParams).promise();
-            const qrCodeUrlInS3 = uploadResult.Location; // The public URL of the uploaded image
-
-            // Step 2: Return the QR code URL and the secret to frontend
-            return {
-                // qrCodeBuffer, // The QR code image buffer (useful if you want to send it as a response)
-                qrCodeUrlInS3, // The URL of the uploaded QR code image on S3
-                secret: secret.base32, // The 2FA secret for saving in the user's profile
-                qrCodeUrl, // The URL for the authenticator app (otpauth:// link)
-            };
-        } catch (error) {
-            throw new Error('Error uploading to S3: ' + error.message);
-        }
     }
 
     async checkUserIsActive(username: string): Promise<any> {
         const user = await this.userRepository.findByUsername(username);
 
+        console.log('🔍 Found user:', user);
+
         if (!user) {
-            throw new NotFoundException('User not found');
+            return {
+                status: 'not_found',
+                message: 'User not found',
+            };
         }
 
         return {
-            isActive: user.isActive
-                ? `Your account is active`
-                : `Your account is not active`,
+            status: user.isActive ? 'active' : 'in_active',
+            message: user.isActive
+                ? 'Your account is active'
+                : 'Your account is not active',
         };
     }
 
@@ -560,13 +657,25 @@ export class AuthService {
         };
     }
 
-    async lostDevice(username: string): Promise<any> {
-        const user = await this.userRepository.findByUsername(username);
+    async lostDevice(lostMyDevice: LostMyDeviceDto): Promise<any> {
+        const user = await this.userRepository.findByUsername(
+            lostMyDevice.username,
+        );
+
+        if (lostMyDevice.email) {
+            if (user.email !== lostMyDevice.email) {
+                throw new BadRequestException(
+                    'Email does not match with username',
+                );
+            }
+        }
 
         if (!user) {
             throw new NotFoundException('User not found');
         }
         user.isRequested = true;
+        user.requestedType = UserRequestType.LOST_DEVICE;
+        user.requestedDate = new Date();
 
         await this.userRepository.save(user);
 
@@ -575,16 +684,21 @@ export class AuthService {
         };
     }
 
-    async forgotUsername(email: string): Promise<any> {
-        const user = await this.userRepository.findByEmail(email);
-
-        console.log('🔍 Found user:', user);
+    async forgotUsername(forgotUserNameDto: ForgotUserNameDto): Promise<any> {
+        const user = await this.userRepository.findByEmail(
+            forgotUserNameDto.email,
+        );
 
         if (!user) {
             throw new NotFoundException('User not found');
         }
+        if (forgotUserNameDto.message) {
+            user.message = forgotUserNameDto.message;
+        }
 
         user.isRequested = true;
+        user.requestedType = UserRequestType.FORGOT_USERNAME;
+        user.requestedDate = new Date();
         await this.userRepository.save(user);
 
         return {
@@ -607,10 +721,50 @@ export class AuthService {
 
         user.isActive = true;
         user.isRequested = false;
-        await this.userRepository.save(user);
+        const res = await this.userRepository.save(user);
+
+        console.log('User account activated:', res);
 
         return {
             message: `User account activated successfully with this username '${username}'`,
         };
+    }
+
+    // ADMIN ACCESS
+    async deleteUser(
+        username: string,
+        checkTotpDto: CheckTotpDto,
+    ): Promise<any> {
+        const user = await this.userRepository.findByUsername(username);
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        // check TOTP
+
+        const verified = await this.check2FACode(
+            checkTotpDto.username,
+            checkTotpDto.token,
+        );
+
+        if (!verified) {
+            throw new BadRequestException('Invalid TOTP token');
+        }
+
+        await this.userRepository.delete({ id: user.id });
+
+        return {
+            message: `User with username '${username}' deleted successfully`,
+        };
+    }
+
+    async getUserDetails(username: string): Promise<any> {
+        const user = await this.userRepository.findByUsername(username);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
     }
 }

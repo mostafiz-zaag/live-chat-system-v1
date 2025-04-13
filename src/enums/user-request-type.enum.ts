@@ -1,5 +1,5 @@
 export enum UserRequestType {
-  LOST_DEVICE = 'LOST_DEVICE',
-  FORGOT_USERNAME = 'FORGOT_USERNAME',
-  ACCOUNT_ACTIVATION = 'ACCOUNT_ACTIVATION',
+    LOST_DEVICE = 'lost_device',
+    FORGOT_USERNAME = 'forgot_username',
+    ACCOUNT_ACTIVATION = 'account_activation',
 }

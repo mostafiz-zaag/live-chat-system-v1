@@ -20,7 +20,10 @@ export class ChatRepository {
     }
 
     async updateRoomAgent(roomId: number, agentId: string): Promise<void> {
-        await this.roomRepository.update({ id: roomId }, { agentId }); // Use 'id' instead of 'roomId'
+        await this.roomRepository.update(
+            { id: roomId },
+            { agentId: parseInt(agentId, 10) },
+        );
     }
 
     async createMessage(

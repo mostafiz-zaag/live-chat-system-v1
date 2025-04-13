@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository, IsNull } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { Room } from '../entities/room.entity';
 
 @Injectable()
@@ -12,12 +12,11 @@ export class RoomRepository extends Repository<Room> {
         return this.findOne({ where: { agentId: IsNull() } });
     }
 
-    // In RoomRepository
-    async assignAgentToRoom(roomId: number, agentId: string): Promise<void> {
+    async assignAgentToRoom(roomId: number, agentId: number): Promise<void> {
         const room = await this.findOne({ where: { id: roomId } });
         if (room) {
-            room.agentId = agentId; // Assign agentId
-            await this.save(room); // Save updated room
+            room.agentId = agentId;
+            await this.save(room);
         } else {
             throw new Error(`Room with ID ${roomId} not found.`);
         }
@@ -30,11 +29,27 @@ export class RoomRepository extends Repository<Room> {
     async getWaitingRooms(): Promise<Room[]> {
         return this.find({
             where: { agentId: IsNull() },
-            select: ['id', 'userId', 'name'],
+            select: ['id', 'userId', 'name', 'department', 'language'],
         });
     }
 
     async deleteRoom(roomId: number): Promise<void> {
         await this.delete(roomId);
+    }
+
+    // room.repository.ts
+    async createRoomForUser(
+        userId: string,
+        language: string,
+        department: string,
+    ): Promise<Room> {
+        const room = this.create({
+            userId,
+            name: `Room for User ${userId}`,
+            agentId: null,
+            language, // ✅ Save languages
+            department, // ✅ Save departments
+        });
+        return this.save(room);
     }
 }

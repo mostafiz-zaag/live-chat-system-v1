@@ -1,6 +1,8 @@
+import { AccountStatus } from 'src/enums/account-status.enum';
+import { Room } from 'src/modules/chat/entities/room.entity';
+import { Faq } from 'src/modules/FAQ/faq.entity';
 import {
     BeforeInsert,
-    BeforeUpdate,
     Column,
     CreateDateColumn,
     Entity,
@@ -9,7 +11,8 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import { Role } from '../../../enums/user-role';
+import { AgentStatus, Role } from '../../../enums/user-role';
+import { Exclude } from 'class-transformer';
 
 @Entity()
 export class User {
@@ -28,10 +31,13 @@ export class User {
     @Column({ type: 'enum', enum: Role, default: Role.AGENT })
     role: Role;
 
-    @Column({ default: false })
+    @Column({ default: false, type: 'boolean' })
     isActive: boolean; // <-- New isActive Column
 
-    @Column({ type: 'simple-array', nullable: true })
+    @Column({ type: 'text', array: true, nullable: true }) // ✅ Corrected clearly
+    languages?: string[];
+
+    @Column({ type: 'text', array: true, nullable: true }) // ✅ Corrected clearly
     departments?: string[];
 
     @Column({ default: true })
@@ -45,9 +51,6 @@ export class User {
 
     @OneToMany(() => User, (user) => user.manager)
     agents?: User[];
-
-    @Column({ type: 'simple-array', nullable: true })
-    languages?: string[];
 
     @Column({ nullable: true })
     language?: string;
@@ -76,16 +79,55 @@ export class User {
     @Column({ default: false })
     isRequested: boolean;
 
+    @Column({ default: false })
+    isAssigned: boolean;
+
+    @Column({
+        type: 'enum',
+        enum: AgentStatus,
+        default: AgentStatus.BUSY, // Default clearly set to BUSY
+    })
+    status: AgentStatus;
+
+    @Column({
+        type: 'enum',
+        enum: AccountStatus,
+        default: AccountStatus.ACTIVE, // Default clearly set to ACTIVE
+    })
+    accountStatus: string;
+
+    @Column({ default: 0 })
+    activeChatCount: number;
+
     @CreateDateColumn()
     createdAt: Date;
 
     @UpdateDateColumn()
     updatedAt: Date;
 
+    @Column({ nullable: true })
+    lastLogin?: Date;
+
+    @Column({ nullable: true })
+    requestedType?: string;
+
+    @Column({ nullable: true })
+    requestedDate?: Date;
+
+    @Column({ nullable: true })
+    message?: string;
+
     // Lifecycle Hooks to ensure correct isActive state
     @BeforeInsert()
-    @BeforeUpdate()
+    // @BeforeUpdate()
     setActiveStatus() {
         this.isActive = this.role === Role.ADMIN;
     }
+
+    @OneToMany(() => Faq, (faq) => faq.createdBy)
+    faqs: Faq[];
+
+    @OneToMany(() => Room, (room) => room.user)
+    rooms: Room[];
+
 }

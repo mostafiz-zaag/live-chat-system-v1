@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { Role } from 'src/enums/user-role';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { AgentStatus, Role } from 'src/enums/user-role';
 import { DataSource, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 
@@ -18,17 +18,11 @@ export class UserRepository extends Repository<User> {
     }
 
     async findByUsername(username: string): Promise<User | null> {
-        const user = await this.findOne({ where: { username } });
-        return user ? user : null; // Ensure it returns null if not found
+        return this.findOne({ where: { username } });
     }
 
     async findByUsernameAndAdmin(username: string): Promise<User | null> {
-        return this.findOne({
-            where: {
-                username,
-                role: Role.ADMIN, // Check if the role is admin
-            },
-        });
+        return this.findOne({ where: { username, role: Role.ADMIN } });
     }
 
     async createUser(userData: Partial<User>): Promise<User> {
@@ -38,9 +32,7 @@ export class UserRepository extends Repository<User> {
 
     async getAgentsByManagerId(managerId: number): Promise<User[]> {
         return this.find({
-            where: {
-                manager: { id: managerId },
-            },
+            where: { manager: { id: managerId } },
             relations: ['manager'],
         });
     }
@@ -52,5 +44,72 @@ export class UserRepository extends Repository<User> {
 
     async allRequestForActiveUsers() {
         return this.find({ where: { isRequested: true } });
+    }
+
+    async findReadyMatchingAgent(
+        language: string,
+        department: string,
+    ): Promise<User | null> {
+        return this.createQueryBuilder('user')
+            .where('user.role = :role', { role: Role.AGENT })
+            .andWhere('user.status = :status', { status: AgentStatus.READY })
+            .andWhere(':language = ANY(user.languages)', { language })
+            .andWhere(':department = ANY(user.departments)', { department })
+            .getOne();
+    }
+
+    async findAllReadyAgents(): Promise<User[]> {
+        return this.find({
+            where: { role: Role.AGENT, status: AgentStatus.READY },
+        });
+    }
+
+    async updateAgentStatus(agentId: number, status: AgentStatus) {
+        return this.update({ id: agentId, role: Role.AGENT }, { status });
+    }
+
+    async findReadyUnassignedAgent(
+        language: string,
+        department: string,
+    ): Promise<User | null> {
+        return this.createQueryBuilder('user')
+            .where('user.role = :role', { role: Role.AGENT })
+            .andWhere('user.status = :status', { status: AgentStatus.READY })
+            .andWhere(':language = ANY(user.languages)', { language })
+            .andWhere(':department = ANY(user.departments)', { department })
+            .andWhere('user.isAssigned = :assigned', { assigned: false })
+            .getOne();
+    }
+
+    async findReadyAgent(): Promise<User | null> {
+        return this.findOne({
+            where: {
+                role: Role.AGENT,
+                status: AgentStatus.READY,
+                isAssigned: false,
+            },
+        });
+    }
+
+    async getAgentsByManager(managerId: number): Promise<User[]> {
+        const manager = await this.findOne({
+            where: { id: managerId, role: Role.MANAGER },
+            relations: ['agents'], // Get all agents related to this manager
+        });
+
+        if (!manager) {
+            throw new NotFoundException(
+                `Manager with ID ${managerId} not found.`,
+            );
+        }
+
+        return manager.agents; // Return the agents
+    }
+
+    async getAllManagers(): Promise<User[]> {
+        return this.find({
+            where: { role: Role.MANAGER },
+            relations: ['agents'],
+        });
     }
 }

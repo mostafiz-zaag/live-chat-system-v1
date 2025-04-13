@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JetStreamClient, NatsConnection, consumerOpts } from 'nats';
+import { AgentStatus } from '../../enums/user-role';
 import { ChatService } from '../chat/chat.service';
-import { AgentRepository } from '../agents/agent.repository';
+import { UserRepository } from '../user/user.repository';
 
 @Injectable()
 export class NatsHandlers {
@@ -11,7 +12,7 @@ export class NatsHandlers {
     constructor(
         private readonly nc: NatsConnection,
         private readonly chatService: ChatService,
-        private readonly agentRepository: AgentRepository,
+        private readonly userRepository: UserRepository,
     ) {
         this.js = this.nc.jetstream();
         this.setupConsumers();
@@ -19,13 +20,11 @@ export class NatsHandlers {
 
     private async setupConsumers() {
         try {
-            // Consumer for user requests
             const userSub = await this.js.pullSubscribe(
                 'user.request',
                 consumerOpts().durable('user-queue-consumer'),
             );
 
-            // Consumer for agent availability
             const agentSub = await this.js.pullSubscribe(
                 'agent.ready',
                 consumerOpts().durable('agent-queue-consumer'),
@@ -34,8 +33,8 @@ export class NatsHandlers {
             (async () => {
                 for await (const msg of userSub) {
                     try {
-                        const userId = msg.data.toString();
-                        await this.handleUserRequest(userId);
+                        const data = JSON.parse(msg.data.toString());
+                        await this.handleUserRequest(data.userId, data.roomId);
                         msg.ack();
                     } catch (error) {
                         this.logger.error('Error handling user request', error);
@@ -46,7 +45,7 @@ export class NatsHandlers {
             (async () => {
                 for await (const msg of agentSub) {
                     try {
-                        const agentId = msg.data.toString();
+                        const agentId = parseInt(msg.data.toString(), 10);
                         await this.handleAgentReady(agentId);
                         msg.ack();
                     } catch (error) {
@@ -59,20 +58,14 @@ export class NatsHandlers {
         }
     }
 
-    private async handleUserRequest(userId: string) {
+    private async handleUserRequest(userId: number, roomId: number) {
         try {
-            // Check if there is a ready agent
-            const agentSub = await this.js.pullSubscribe(
-                'agent.ready',
-                consumerOpts().durable('agent-queue-consumer'),
-            );
+            const agent = await this.userRepository.findReadyAgent();
 
-            // Fetch the next message from the agent subscription
-            await agentSub.pull({ batch: 1 });
-            for await (const msg of agentSub) {
-                const agentId = msg.data.toString();
-                await this.assignAgentToUser(agentId, userId);
-                msg.ack();
+            if (agent) {
+                await this.assignAgentToUser(agent.id, roomId, userId);
+            } else {
+                this.logger.log(`No ready agents available for User ${userId}`);
             }
         } catch (error) {
             this.logger.error(
@@ -82,20 +75,20 @@ export class NatsHandlers {
         }
     }
 
-    private async handleAgentReady(agentId: string) {
+    private async handleAgentReady(agentId: number) {
         try {
-            // Check if there are users waiting
-            const userSub = await this.js.pullSubscribe(
-                'user.request',
-                consumerOpts().durable('user-queue-consumer'),
-            );
+            const waitingRoom = await this.chatService.getNextWaitingRoom();
 
-            // Fetch the next message from the user subscription
-            await userSub.pull({ batch: 1 });
-            for await (const msg of userSub) {
-                const userId = msg.data.toString();
-                await this.assignAgentToUser(agentId, userId);
-                msg.ack();
+            if (waitingRoom) {
+                await this.assignAgentToUser(
+                    agentId,
+                    waitingRoom.id,
+                    parseInt(waitingRoom.userId, 10),
+                );
+            } else {
+                this.logger.log(
+                    `No waiting users available for Agent ${agentId}`,
+                );
             }
         } catch (error) {
             this.logger.error(
@@ -105,16 +98,19 @@ export class NatsHandlers {
         }
     }
 
-    private async assignAgentToUser(agentId: string, userId: string) {
+    private async assignAgentToUser(
+        agentId: number,
+        roomId: number,
+        userId: number,
+    ) {
         try {
-            // Assign agent to user's chat room
-            const roomId = parseInt(userId, 10); // Convert userId to number
             await this.chatService.assignAgent(roomId, agentId);
 
-            // Mark agent as busy
-            await this.agentRepository.update({ agentId }, { status: 'busy' });
+            await this.userRepository.update(agentId, {
+                status: AgentStatus.BUSY, // ✅ Corrected enum usage clearly
+                isAssigned: true,
+            });
 
-            // Notify user and agent (e.g., via WebSocket)
             this.logger.log(
                 `Assigned Agent ${agentId} to User ${userId} in Room ${roomId}`,
             );

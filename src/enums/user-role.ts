@@ -6,5 +6,5 @@ export enum Role {
 
 export enum AgentStatus {
     BUSY = 'busy',
-    AVAILABLE = 'ready',
+    READY = 'ready',
 }

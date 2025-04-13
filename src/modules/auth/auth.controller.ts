@@ -1,23 +1,28 @@
 import {
+    BadRequestException,
     Body,
     Controller,
+    Delete,
     Get,
     HttpCode,
     Param,
+    Patch,
     Post,
-    Put,
     Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { API_PREFIX } from 'src/constants/project.constant';
+import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { UserRegisterDto } from '../user/dto/user-register.dto';
 import { UserService } from '../user/user.service';
 import { AuthService } from './auth.service';
 import { AdminLoginDto } from './dto/admin.login';
 import { ChangeUsernameDto } from './dto/change-username.dto';
+import { CheckTotpDto } from './dto/check-totp.dto';
+import { ForgotUserNameDto } from './dto/forgot-username.dto';
 import { LoginDto } from './dto/login.dto';
+import { LostMyDeviceDto } from './dto/lost-my-device.dto';
 
-@Controller('/')
+@Controller(`/`)
 export class AuthController {
     userRepository: any;
     constructor(
@@ -33,7 +38,7 @@ export class AuthController {
 
     // @UseGuards(JwtAuthGuard, RolesGuard)
     // @Roles(Role.ADMIN)
-    @Post(`${API_PREFIX}/auth/register`)
+    @Post(`${API_SECURED_PREFIX}/auth/register`)
     async register(@Body() registerDto: UserRegisterDto) {
         return this.authService.register(registerDto);
     }
@@ -58,24 +63,28 @@ export class AuthController {
     // google authentification
 
     // Endpoint to generate 2FA secret and return the QR code URL
-    @Get(`${API_PREFIX}/generate-2fa/:username`)
+    @Get(`${API_PREFIX}/auth/generate-2fa/:username`)
     async generate2FA(
         @Param('username') username: string,
         @Res() res: Response,
     ) {
         try {
             // Generate the 2FA secret and QR code
-            const { qrCodeUrlInS3, secret, qrCodeUrl } =
+            const { secret, qrCodeUrl, qrCodeBuffer } =
                 await this.authService.generate2FASecret(username);
 
+            // res.setHeader('Content-Type', 'image/png');
+            // res.setHeader(
+            //     'Content-Disposition',
+            //     'inline; filename="qrcode.png"',
+            // ); // Optional: to suggest a filename
+
+            res.header('secret', secret);
+
             // Return the QR code URL (hosted on S3) and the secret for frontend usage
-            return res.json({
-                qrCodeUrlInS3, // The URL of the uploaded QR code image on S3
-                secret, // The 2FA secret saved in the database
-                qrCodeUrl, // The URL to be used in the authenticator app (otpauth:// link)
-            });
+            return res.send(qrCodeBuffer.toString('base64')); // Send the QR code image as a base64 string
         } catch (error) {
-            res.status(500).json({
+            res.status(400).json({
                 message: 'Error generating 2FA',
                 error: error.message,
             });
@@ -101,28 +110,38 @@ export class AuthController {
         return this.authService.changeUsername(chnageUsernameDto);
     }
 
+    // Login with 2FA
     @HttpCode(200)
-    @Post(`${API_PREFIX}/verify-2fa`)
+    @Post(`${API_PREFIX}/auth/verify-2fa`)
     async verify2FA(
         @Body('username') username: string,
         @Body('token') token: string,
     ) {
-        const isVerified = await this.authService.verify2FAToken(
-            username,
-            token,
-        );
-        return isVerified
-            ? {
-                  message: '2FA activated successfully',
-                  access_token: isVerified,
-              }
-            : { message: 'Invalid 2FA token' };
+        try {
+            // Attempt 2FA verification
+            const result = await this.authService.verify2FAToken(
+                username,
+                token,
+            );
+
+            return result
+                ? {
+                      message: '2FA activated successfully',
+                      user: result.user,
+                      access_token: result.access_token,
+                  }
+                : { message: 'Invalid 2FA token' };
+        } catch (error) {
+            throw new BadRequestException(
+                error.message || 'Something went wrong',
+            );
+        }
     }
 
     // check user is active or not
     @HttpCode(200)
-    @Get(`${API_PREFIX}/auth/check-user`)
-    async checkUser(@Body('username') username: string) {
+    @Get(`${API_PREFIX}/auth/check-user/:username`)
+    async checkUser(@Param('username') username: string) {
         return this.authService.checkUserIsActive(username);
     }
 
@@ -138,24 +157,43 @@ export class AuthController {
         return await this.userService.allRequestForActiveUsers();
     }
 
-    // Lost my device
-
+    // --------------------------Lost my device-----------------------------
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/lost-device`)
-    async lostDevice(@Body('username') username: string) {
-        return this.authService.lostDevice(username);
+    async lostDevice(@Body() lostMydevice: LostMyDeviceDto) {
+        return this.authService.lostDevice(lostMydevice);
     }
 
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/forgot-username`)
-    async forgotUsername(@Body('email') email: string) {
-        return this.authService.forgotUsername(email);
+    async forgotUsername(@Body() forgotUserNameDto: ForgotUserNameDto) {
+        return this.authService.forgotUsername(forgotUserNameDto);
     }
+
+    // ---------------------------Lost my device-----------------------------
 
     // Account active
     @HttpCode(200)
-    @Put(`${API_PREFIX}/auth/active-account`)
+    @Patch(`${API_PREFIX}/auth/active-account`)
     async activeAccount(@Body('username') username: string) {
         return this.authService.activeAccount(username);
+    }
+
+    // ADMIN ACCESS
+
+    @HttpCode(200)
+    @Delete(`${API_PREFIX}/auth/user/delete/:username`)
+    async deleteUser(
+        @Param('username') username: string,
+        @Body() checkTotpDto: CheckTotpDto,
+    ) {
+        return this.authService.deleteUser(username, checkTotpDto);
+    }
+
+    // see user details
+    @HttpCode(200)
+    @Get(`${API_PREFIX}/auth/user/:username`)
+    async getUserDetails(@Param('username') username: string) {
+        return this.authService.getUserDetails(username);
     }
 }
