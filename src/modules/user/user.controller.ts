@@ -1,6 +1,6 @@
 // src/modules/user/user.controller.ts
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { API_PREFIX } from 'src/constants/project.constant';
+import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { Role } from 'src/enums/user-role';
 import { ChatService } from '../chat/chat.service';
 import { RequestAssistanceDto } from './dto/request-assistance.dto';
@@ -125,7 +125,7 @@ export class UserController {
 
     // ------------------------------Agent endpoints--------------------------------
 
-    @Get(`${API_PREFIX}/users/agent/in-queue/:agentId`)
+    @Get(`${API_SECURED_PREFIX}/users/agent/in-queue/:agentId`)
     async getAgentInQueue(@Param('agentId') agentId: number) {
         const inQueue = await this.usersService.queueListForAgent(agentId);
         return {

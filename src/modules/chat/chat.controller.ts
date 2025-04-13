@@ -11,7 +11,7 @@ import {
     ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { API_PREFIX } from 'src/constants/project.constant';
+import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { ChatService } from './chat.service';
 import { LeaveAgentChatDto, LeaveChatDto } from './dto/leave-chat.dto';
 import { UploadFileDto } from './dto/upload-file.dto';
@@ -117,7 +117,7 @@ export class ChatController {
         };
     }
 
-    @Get(`${API_PREFIX}/chat/my-chat/agent/:agentId`)
+    @Get(`${API_SECURED_PREFIX}/chat/my-chat/agent/:agentId`)
     async getAgentChatRooms(@Param('agentId') agentId: number) {
         const myChats = await this.chatService.getAssignedRooms(agentId);
 
