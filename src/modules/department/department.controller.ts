@@ -5,9 +5,11 @@ import {
     Delete,
     Get,
     Param,
+    Patch,
     Post,
-    Put,
+    Query,
 } from '@nestjs/common';
+import { PageRequest } from 'src/common/dto/page-request.dto';
 import { API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { DepartmentService } from './department.service';
 import { Department } from './entity/department.entity';
@@ -24,8 +26,17 @@ export class DepartmentController {
 
     // Get all departments
     @Get()
-    async findAll(): Promise<Department[]> {
-        return this.departmentService.findAll();
+    async findAll(
+        @Query('name') name: string,
+        @Query('page') page: number,
+        @Query('size') size: number,
+        @Query('isActive') isActive: boolean,
+    ) {
+        return this.departmentService.findAll(
+            name,
+            isActive,
+            new PageRequest(page, size),
+        );
     }
 
     // Get a department by ID
@@ -35,9 +46,9 @@ export class DepartmentController {
     }
 
     // Update a department
-    @Put(':id')
+    @Patch('/update')
     async update(
-        @Param('id') id: number,
+        @Query('id') id: number,
         @Body('name') name: string,
     ): Promise<Department> {
         return this.departmentService.update(id, name);
@@ -47,5 +58,14 @@ export class DepartmentController {
     @Delete(':id')
     async remove(@Param('id') id: number): Promise<void> {
         return this.departmentService.remove(id);
+    }
+
+    // upadte status
+    @Patch('update/status')
+    async updateStatus(
+        @Query('id') id: number,
+        @Query('isActive') isActive: boolean,
+    ): Promise<Department> {
+        return this.departmentService.updateStatus(+id, isActive);
     }
 }

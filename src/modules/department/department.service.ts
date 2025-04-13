@@ -1,8 +1,14 @@
 // src/department/department.service.ts
 import { Injectable } from '@nestjs/common';
-import { ResourceAlreadyExistException } from 'src/exceptions';
+import { PageRequest } from 'src/common/dto/page-request.dto';
+import { createPaginatedResponse } from 'src/common/dto/pagination.dto';
+import {
+    ResourceAlreadyExistException,
+    ResourceNotFoundException,
+} from 'src/exceptions';
 import { SecurityUtil } from 'src/utils/security.util';
 import { DepartmentRepository } from './department.repository';
+import { DepartmentSpecification } from './department.specification';
 import { Department } from './entity/department.entity';
 
 @Injectable()
@@ -13,6 +19,7 @@ export class DepartmentService {
     ) {}
 
     async create(name: string): Promise<Department> {
+        // const loggedInUser = await this.securityUtils.getLoggedInUser();
         // check if the department already exists
         const existingDepartment = await this.departmentRepository.findOne({
             where: { name },
@@ -26,8 +33,21 @@ export class DepartmentService {
         return this.departmentRepository.save(department);
     }
 
-    async findAll(): Promise<Department[]> {
-        return this.departmentRepository.find();
+    async findAll(name: string, isActive: boolean, pagerequest: PageRequest) {
+        const queryBuilder =
+            this.departmentRepository.createQueryBuilder('department');
+
+        // const loggedInUser = await this.securityUtils.getLoggedInUser();
+
+        DepartmentSpecification.distinctFaqs(queryBuilder);
+        DepartmentSpecification.matchName(queryBuilder, name);
+        DepartmentSpecification.matchStatus(queryBuilder, isActive);
+
+        const [departments, total] = await queryBuilder
+            .orderBy('department.id', 'DESC')
+            .getManyAndCount();
+
+        return createPaginatedResponse(departments, total, pagerequest);
     }
 
     async findOne(id: number): Promise<Department> {
@@ -35,7 +55,7 @@ export class DepartmentService {
     }
 
     async update(id: number, name: string): Promise<Department> {
-        const department = await this.findOne(id);
+        const department = await this.departmentRepository.findById(id);
         if (!department) {
             throw new Error('Department not found');
         }
@@ -49,5 +69,14 @@ export class DepartmentService {
             throw new Error('Department not found');
         }
         await this.departmentRepository.remove(department);
+    }
+
+    async updateStatus(id: number, isActive: boolean) {
+        const department = await this.findOne(id);
+        if (!department) {
+            throw new ResourceNotFoundException('Department not found');
+        }
+        department.isActive = isActive;
+        return this.departmentRepository.save(department);
     }
 }

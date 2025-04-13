@@ -15,6 +15,9 @@ export class Department {
     @Column({ type: 'varchar', length: 255 })
     name: string;
 
+    @Column({ nullable: false, type: 'boolean', default: true })
+    isActive: boolean;
+
     @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 
