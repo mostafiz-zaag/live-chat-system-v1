@@ -20,6 +20,7 @@ import { BaseController } from './modules/base/base.controller';
 import { BaseService } from './modules/base/base.service';
 import { ChatGateway } from './modules/chat/chat.gateway';
 import { ChatModule } from './modules/chat/chat.module';
+import { DepartmentModule } from './modules/department/department.module';
 import { FaqModule } from './modules/FAQ/faq.module';
 import { NatsModule } from './modules/nats/nats.module';
 import { UserModule } from './modules/user/user.module';
@@ -46,6 +47,7 @@ import { SeederModule } from './seeder/seeder.module';
         AuthModule,
         MailModule,
         FaqModule,
+        DepartmentModule,
     ],
     controllers: [BaseController],
     providers: [

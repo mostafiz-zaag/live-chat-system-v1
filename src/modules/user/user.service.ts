@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Inject,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { AgentStatus, Role } from 'src/enums/user-role';
 import { ChatService } from '../chat/chat.service';
@@ -247,10 +252,17 @@ export class UserService {
 
     async queueListForAgent(agentId: number) {
         const agent = await this.userRepository.findById(agentId);
+        console.log('Agent found: ', agent);
         if (agent.role !== 'agent')
             throw new NotFoundException(`Agent not found.`);
 
         const queue = await this.getQueueSize();
+
+        if (agent.departments == null || agent.languages == null) {
+            throw new BadRequestException(
+                `Agent ${agent.username} has no assigned departments or languages.`,
+            );
+        }
 
         // check agent languages and departments are match with queue languages and departments
         const filteredQueue = queue.waitingRooms.filter((room) => {
