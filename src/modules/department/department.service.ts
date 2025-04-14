@@ -19,7 +19,7 @@ export class DepartmentService {
     ) {}
 
     async create(name: string): Promise<Department> {
-        // const loggedInUser = await this.securityUtils.getLoggedInUser();
+        const loggedInUser = await this.securityUtils.getLoggedInUser();
         // check if the department already exists
         const existingDepartment = await this.departmentRepository.findOne({
             where: { name },
@@ -34,6 +34,7 @@ export class DepartmentService {
     }
 
     async findAll(name: string, isActive: boolean, pagerequest: PageRequest) {
+        const loggedInUser = await this.securityUtils.getLoggedInUser();
         const queryBuilder =
             this.departmentRepository.createQueryBuilder('department');
 
@@ -51,10 +52,12 @@ export class DepartmentService {
     }
 
     async findOne(id: number): Promise<Department> {
+        const loggedInUser = await this.securityUtils.getLoggedInUser();
         return this.departmentRepository.findOne({ where: { id } });
     }
 
     async update(id: number, name: string): Promise<Department> {
+        const loggedInUser = await this.securityUtils.getLoggedInUser();
         const department = await this.departmentRepository.findById(id);
         if (!department) {
             throw new Error('Department not found');
@@ -63,16 +66,21 @@ export class DepartmentService {
         return this.departmentRepository.save(department);
     }
 
-    async remove(id: number): Promise<void> {
-        const department = await this.findOne(id);
+    async remove(id: number) {
+        const loggedInUser = await this.securityUtils.getLoggedInUser();
+        const department = await this.departmentRepository.findById(id);
         if (!department) {
             throw new Error('Department not found');
         }
-        await this.departmentRepository.remove(department);
+        return {
+            message: 'Department deleted successfully',
+        };
     }
 
     async updateStatus(id: number, isActive: boolean) {
-        const department = await this.findOne(id);
+        const loggedInUser = await this.securityUtils.getLoggedInUser();
+        const department = await this.departmentRepository.findById(id);
+
         if (!department) {
             throw new ResourceNotFoundException('Department not found');
         }

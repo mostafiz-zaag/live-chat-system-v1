@@ -55,8 +55,9 @@ export class DepartmentController {
     }
 
     // Delete a department
-    @Delete(':id')
-    async remove(@Param('id') id: number): Promise<void> {
+    @Delete('/delete/:id')
+    async remove(@Param('id') id: number) {
+        console.log('id', id);
         return this.departmentService.remove(id);
     }
 
@@ -66,6 +67,7 @@ export class DepartmentController {
         @Query('id') id: number,
         @Query('isActive') isActive: boolean,
     ): Promise<Department> {
+        console.log('isActive', isActive);
         return this.departmentService.updateStatus(+id, isActive);
     }
 }
