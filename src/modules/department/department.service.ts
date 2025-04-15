@@ -34,7 +34,7 @@ export class DepartmentService {
     }
 
     async findAll(name: string, isActive: boolean, pagerequest: PageRequest) {
-        const loggedInUser = await this.securityUtils.getLoggedInUser();
+        // const loggedInUser = await this.securityUtils.getLoggedInUser();
         const queryBuilder =
             this.departmentRepository.createQueryBuilder('department');
 

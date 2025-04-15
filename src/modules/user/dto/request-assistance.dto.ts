@@ -1,5 +1,5 @@
 // request-assistance.dto.ts
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class RequestAssistanceDto {
     @IsString({ message: 'userId must be a string' })
@@ -12,4 +12,8 @@ export class RequestAssistanceDto {
     @IsString({ message: 'department must be a string' })
     @IsNotEmpty({ message: 'department is required' })
     department: string;
+
+    @IsString()
+    @IsOptional()
+    initialMessage: string; // Optional field for initial message
 }

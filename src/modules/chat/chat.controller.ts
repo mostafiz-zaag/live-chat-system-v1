@@ -5,6 +5,7 @@ import {
     HttpCode,
     Param,
     Post,
+    Query,
     UploadedFile,
     UseInterceptors,
     UsePipes,
@@ -15,6 +16,7 @@ import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { ChatService } from './chat.service';
 import { LeaveAgentChatDto, LeaveChatDto } from './dto/leave-chat.dto';
 import { UploadFileDto } from './dto/upload-file.dto';
+import { PageRequest } from '../../common/dto/page-request.dto';
 
 @Controller('/')
 export class ChatController {
@@ -118,13 +120,15 @@ export class ChatController {
     }
 
     @Get(`${API_SECURED_PREFIX}/chat/my-chat/agent/:agentId`)
-    async getAgentChatRooms(@Param('agentId') agentId: number) {
-        const myChats = await this.chatService.getAssignedRooms(agentId);
-
-        return {
-            message: 'Agent chat successfully.',
-            myChats,
-        };
+    async getAgentChatRooms(
+        @Param('agentId') agentId: number,
+        @Query('page') page: number,
+        @Query('size') size: number,
+    ) {
+        return await this.chatService.getAssignedRooms(
+            agentId,
+            new PageRequest(page, size),
+        );
     }
 
     @Get(`${API_PREFIX}/agent/in-queue/:agentId`)
@@ -142,6 +146,19 @@ export class ChatController {
         return {
             message: 'Chat history fetched successfully.',
             chatHistory,
+        };
+    }
+
+    @Post(`${API_SECURED_PREFIX}/users/agent/join-chat`)
+    async joinChat(
+        @Body() joinChatDto: { roomId: number }, // Only roomId is passed
+    ) {
+        // Call the service to join the chat
+        const room = await this.chatService.joinChat(joinChatDto.roomId);
+
+        return {
+            message: 'Agent joined the chat successfully.',
+            room,
         };
     }
 }

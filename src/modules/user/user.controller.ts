@@ -1,10 +1,20 @@
 // src/modules/user/user.controller.ts
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+} from '@nestjs/common';
 import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { Role } from 'src/enums/user-role';
 import { ChatService } from '../chat/chat.service';
 import { RequestAssistanceDto } from './dto/request-assistance.dto';
+import { UpdateUserDto } from './dto/UpdateUser.dto';
 import { UserService } from './user.service';
+import { PageRequest } from '../../common/dto/page-request.dto';
 
 @Controller('/')
 export class UserController {
@@ -19,6 +29,7 @@ export class UserController {
             dto.userId,
             dto.language,
             dto.department,
+            dto.initialMessage,
         );
     }
 
@@ -33,14 +44,27 @@ export class UserController {
     }
 
     // Agent endpoints
-    @Post(`${API_PREFIX}/users/agent/ready`)
-    async agentReady(@Body('username') username: string) {
-        return this.usersService.agentJoinQueue(username);
-    }
+    // @Post(`${API_PREFIX}/users/agent/ready`)
+    // async agentReady(@Body('username') username: string) {
+    //     return this.usersService.agentJoinQueue(username);
+    // }
 
-    @Post(`${API_PREFIX}/users/agent/busy`)
-    async agentBusy(@Body('username') username: string) {
-        return this.usersService.agentBusy(username);
+    // @Post(`${API_PREFIX}/users/agent/busy`)
+    // async agentBusy(@Body('username') username: string) {
+    //     return this.usersService.agentBusy(username);
+    // }
+
+    @Patch(`${API_PREFIX}/users/agent/status`)
+    async setAgentStatus(
+        @Query('id') id: string,
+        @Query('ready') ready: boolean, // using string since query params are string by default
+    ) {
+        console.log(id, ready);
+        if (ready === true) {
+            return this.usersService.agentJoinQueue(+id);
+        } else {
+            return this.usersService.agentBusy(+id);
+        }
     }
 
     @Get(`${API_PREFIX}/users/agents/all-busy`)
@@ -74,11 +98,17 @@ export class UserController {
 
     //---------------------------- Admin panal: Manager access endpoints---------------------------
     @Get(`${API_PREFIX}/users/manager/all`)
-    async getAllManagers() {
-        return {
-            message: 'All managers fetched successfully.',
-            managers: await this.usersService.getAllManagers(),
-        };
+    async getAllManagers(
+        @Query('name') name: string,
+        @Query('isActive') isActive: boolean,
+        @Query('page') page: number,
+        @Query('size') size: number,
+    ) {
+        return await this.usersService.getAllManagers(
+            name,
+            isActive,
+            new PageRequest(page, size),
+        );
     }
 
     @Get(`${API_PREFIX}/users/manager/in-queue/:managerId`)
@@ -126,26 +156,24 @@ export class UserController {
     // ------------------------------Agent endpoints--------------------------------
 
     @Get(`${API_SECURED_PREFIX}/users/agent/in-queue/:agentId`)
-    async getAgentInQueue(@Param('agentId') agentId: number) {
-        const inQueue = await this.usersService.queueListForAgent(agentId);
+    async getAgentInQueue(
+        @Param('agentId') agentId: number,
+        @Query('page') page: number,
+        @Query('size') size: number,
+    ) {
+        const inQueue = await this.usersService.queueListForAgent(agentId, new PageRequest(page, size));
         return {
             message: 'Agent in queue successfully.',
             inQueue,
         };
     }
 
-    // -------------------------------FAQ endpoints--------------------------------
-
-    // @Post(`${API_PREFIX}/faq/agent/create-faq/:agentId`)
-    // async createFAQ(
-    //     @Body('sentence') sentence: string,
-    //     @Param('agentId') agentId: number,
-    // ) {
-    //     return await this.usersService.createFAQByAgent(agentId, sentence);
-    // }
-
-    // @Get(`${API_PREFIX}/faqs/agent/:agentId`)
-    // async getAllFAQs(@Param('agentId') agentId: number) {
-    //     return await this.usersService.getAllFAQsByAgent(agentId);
-    // }
+    @Patch(`${API_SECURED_PREFIX}/users/update`)
+    async updateUser(
+        @Query('id') id: number,
+        @Body() updateData: UpdateUserDto,
+    ) {
+        // Validate and update the user based on the provided data
+        return this.usersService.updateUserDetails(+id, updateData);
+    }
 }

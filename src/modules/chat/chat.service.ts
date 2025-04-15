@@ -1,12 +1,15 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AgentStatus } from 'src/enums/user-role';
+import { SecurityUtil } from 'src/utils/security.util';
 import { IsNull } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { S3ConfigService } from '../config/s3.config';
 import { UserRepository } from '../user/user.repository';
 import { MessageRepository } from './repositories/message.repository';
 import { RoomRepository } from './repositories/room.repository';
+import { PageRequest } from '../../common/dto/page-request.dto';
+import { createPaginatedResponse } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class ChatService implements OnModuleInit {
@@ -16,6 +19,7 @@ export class ChatService implements OnModuleInit {
         private readonly userRepository: UserRepository,
         private readonly eventEmitter: EventEmitter2,
         private readonly s3ConfigService: S3ConfigService,
+        private readonly securityUtil: SecurityUtil,
     ) {}
 
     onModuleInit() {
@@ -58,17 +62,27 @@ export class ChatService implements OnModuleInit {
         }
     }
 
+    // async getWaitingUsers() {
+    //     const waitingRooms = await this.roomRepository.getWaitingRooms();
+    //     return {
+    //         queueSize: waitingRooms.length,
+    //         waitingRooms: waitingRooms.map((room) => ({
+    //             roomId: room.id,
+    //             userId: room.userId ?? 'Unknown',
+    //             roomName: room.name,
+    //             department: room.department,
+    //             language: room.language,
+    //             initialMessage: initialMessage?.content ?? null,
+    //         })),
+    //     };
+    // }
+
     async getWaitingUsers() {
         const waitingRooms = await this.roomRepository.getWaitingRooms();
+
         return {
             queueSize: waitingRooms.length,
-            waitingRooms: waitingRooms.map((room) => ({
-                roomId: room.id,
-                userId: room.userId ?? 'Unknown',
-                roomName: room.name,
-                department: room.department,
-                language: room.language,
-            })),
+            waitingRooms: waitingRooms,
         };
     }
 
@@ -122,6 +136,7 @@ export class ChatService implements OnModuleInit {
             Number(roomId),
             senderType,
             fileUrl,
+            'file',
         );
 
         this.eventEmitter.emit('file.uploaded', { roomId, fileUrl });
@@ -187,19 +202,36 @@ export class ChatService implements OnModuleInit {
         });
     }
 
-    async getAssignedRooms(agentId: number) {
-        const rooms = await this.roomRepository.find({
-            where: { agentId },
-            relations: ['messages'],
+    async getAssignedRooms(agentId: number, pageRequest: PageRequest) {
+        const queryBuilder = this.roomRepository
+            .createQueryBuilder('room')
+            .leftJoinAndSelect('room.messages', 'messages');
+
+        const [rooms, total] = await queryBuilder
+            .where('room.agentId = :agentId', { agentId })
+            .orderBy('room.createdAt', 'DESC')
+            .skip(pageRequest.page * pageRequest.size)
+            .take(pageRequest.size)
+            .getManyAndCount();
+
+        const roomDTOs = rooms.map((value) => {
+            return value.getDto();
         });
 
-        return rooms.map((room) => ({
-            roomId: room.id,
-            userId: room.userId,
-            roomName: room.name,
-            message: room.messages?.[room.messages.length - 1]?.content || '',
-            createdAt: room.createdAt, // Send the createdAt timestamp to frontend
-        }));
+        return createPaginatedResponse(roomDTOs, total, pageRequest);
+
+        // const rooms = await this.roomRepository.find({
+        //     where: { agentId },
+        //     relations: ['messages'],
+        // });
+
+        // return rooms.map((room) => ({
+        //     roomId: room.id,
+        //     userId: room.userId,
+        //     roomName: room.name,
+        //     message: room.messages?.[room.messages.length - 1]?.content || '',
+        //     createdAt: room.createdAt, // Send the createdAt timestamp to frontend
+        // }));
     }
 
     async getQueuedRooms() {
@@ -214,6 +246,47 @@ export class ChatService implements OnModuleInit {
             roomName: room.name,
             message: room.messages?.[room.messages.length - 1]?.content || '',
             createdAt: room.createdAt, // Send the createdAt timestamp to frontend
+            initialMessage: room.initialMessage,
         }));
+    }
+
+    async joinChat(roomId: number) {
+        const loggedInUser = await this.securityUtil.getLoggedInUser();
+        // Find the room that the agent is joining
+        const room = await this.roomRepository.findOne({
+            where: { id: roomId },
+        });
+
+        if (!room) {
+            throw new NotFoundException(`Room with ID ${roomId} not found.`);
+        }
+
+        // Check if the room is in the queue (i.e., no agent has been assigned)
+        // if (room.agentId !== null) {
+        //     throw new BadRequestException(
+        //         `This room has already been taken by an agent.`,
+        //     );
+        // }
+
+        // Assign the agent to the room
+        room.agentId = loggedInUser.userId; // Assuming loggedInUser has the agentId
+
+        // Save the updated room
+        await this.roomRepository.save(room);
+
+        // Optionally, you may want to update the agent's active chat count
+        const agent = await this.userRepository.findOne({
+            where: { id: loggedInUser.userId },
+        });
+        if (!agent) {
+            throw new NotFoundException(
+                `Agent with ID ${loggedInUser.userId} not found.`,
+            );
+        }
+
+        agent.activeChatCount += 1; // Increase the active chat count for the agent
+        await this.userRepository.save(agent);
+
+        return room; // Return the updated room
     }
 }

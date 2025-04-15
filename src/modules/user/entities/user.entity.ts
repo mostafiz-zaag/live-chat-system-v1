@@ -130,4 +130,17 @@ export class User {
     @OneToMany(() => Room, (room) => room.user)
     rooms: Room[];
 
+    getDto() {
+        return {
+            id: this.id,
+            email: this.email,
+            username: this.username,
+            role: this.role,
+            isActive: this.isActive,
+            status: this.status,
+            accountStatus: this.accountStatus,
+            departments: this.departments,
+            languages: this.languages,
+        };
+    }
 }

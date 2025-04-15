@@ -29,7 +29,6 @@ export class RoomRepository extends Repository<Room> {
     async getWaitingRooms(): Promise<Room[]> {
         return this.find({
             where: { agentId: IsNull() },
-            select: ['id', 'userId', 'name', 'department', 'language'],
         });
     }
 
@@ -39,17 +38,26 @@ export class RoomRepository extends Repository<Room> {
 
     // room.repository.ts
     async createRoomForUser(
-        userId: string,
+        userId: string, // This is the guest userId (e.g., "hi")
         language: string,
         department: string,
+        initialMessage: string,
     ): Promise<Room> {
+        console.log('Creating room for user:', userId);
+
+        // For guest users, skip the user lookup and just create the room
         const room = this.create({
-            userId,
+            userId: userId, // Store the guest userId (e.g., "hi") as a string
             name: `Room for User ${userId}`,
-            agentId: null,
-            language, // ✅ Save languages
-            department, // ✅ Save departments
+            agentId: null, // Initially, no agent assigned
+            language,
+            department,
+            user: null, // No user entity associated
+            initialMessage,
         });
-        return this.save(room);
+
+        console.log('Room created: Here', room);
+
+        return this.save(room); // Save the room
     }
 }

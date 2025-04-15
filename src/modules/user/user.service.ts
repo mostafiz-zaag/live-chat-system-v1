@@ -10,7 +10,11 @@ import { ChatService } from '../chat/chat.service';
 import { MessageRepository } from '../chat/repositories/message.repository';
 import { RoomRepository } from '../chat/repositories/room.repository';
 import { NatsService } from '../nats/nats.service';
+import { UpdateUserDto } from './dto/UpdateUser.dto';
 import { UserRepository } from './user.repository';
+import { PageRequest } from '../../common/dto/page-request.dto';
+import { UserSpecification } from './user.specification.dto';
+import { createPaginatedResponse } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class UserService {
@@ -24,38 +28,107 @@ export class UserService {
     ) {}
 
     // user.service.ts
+    // async requestAssistance(
+    //     userId: string, // This is the guest userId (e.g., "hi")
+    //     language: string,
+    //     department: string,
+    // ) {
+    //     console.log(userId, language, department);
+    //
+    //     // Step 1: Create a new room for the user
+    //     const chatRoom = await this.roomRepository.createRoomForUser(
+    //         userId, // Pass guest userId (e.g., "hi")
+    //         language,
+    //         department,
+    //     );
+    //
+    //     console.log('Chat room created: ', chatRoom);
+    //
+    //     // Step 2: Find an available agent who can handle the request
+    //     const agent = await this.userRepository.findReadyUnassignedAgent(
+    //         language,
+    //         department,
+    //     );
+    //
+    //     console.log('Agent found: ', agent);
+    //
+    //     if (agent) {
+    //         // Step 3: Assign the agent to the room
+    //         await this.roomRepository.assignAgentToRoom(chatRoom.id, agent.id);
+    //
+    //         // Increase the agent's active chat count
+    //         agent.activeChatCount += 1;
+    //         agent.isAssigned = true;
+    //
+    //         // Save the updated agent data
+    //         await this.userRepository.save(agent);
+    //
+    //         // Emit the agent assignment event (e.g., notifying the system)
+    //         await this.natsClient
+    //             .emit('agent.assigned', {
+    //                 agentId: agent.id,
+    //                 roomId: chatRoom.id,
+    //             })
+    //             .toPromise();
+    //
+    //         return {
+    //             message: `Agent ${agent.username} auto-assigned to room ${chatRoom.id}`,
+    //             room: chatRoom,
+    //         };
+    //     } else {
+    //         // If no agent is available, add the user to the queue and wait for an agent
+    //         await this.natsClient
+    //             .emit('user.request', {
+    //                 userId, // Pass the guest userId (e.g., "hi")
+    //                 roomId: chatRoom.id,
+    //                 language,
+    //                 department,
+    //             })
+    //             .toPromise();
+    //
+    //         return {
+    //             message: 'No unassigned agent available. You have been queued.',
+    //             room: chatRoom,
+    //         };
+    //     }
+    // }
+
     async requestAssistance(
         userId: string,
         language: string,
         department: string,
+        initialMessage?: string,
     ) {
-        // Step 1: Create a new room for the user
         const chatRoom = await this.roomRepository.createRoomForUser(
             userId,
-            language, // Store as an array
-            department, // Store as an array
+            language,
+            department,
+            initialMessage,
         );
 
-        // Step 2: Find an available agent who can handle the request
+        // ✅ Save the initial message as first chat message
+        // if (initialMessage) {
+        //     await this.messageRepository.save({
+        //         room: chatRoom, // Use the full Room entity
+        //         sender: 'user',
+        //         content: initialMessage,
+        //         timestamp: new Date(),
+        //     });
+        // }
+
+        console.log('Room created: Here', chatRoom);
+
         const agent = await this.userRepository.findReadyUnassignedAgent(
             language,
             department,
         );
 
-        console.log('Agent found: ', agent);
-
         if (agent) {
-            // Step 3: Assign agent to the room
             await this.roomRepository.assignAgentToRoom(chatRoom.id, agent.id);
-
-            // Increase the agent's active chat count as they are now assigned to the room
-            agent.activeChatCount += 1; // Increase active chat count to handle multiple chats
+            agent.activeChatCount += 1;
             agent.isAssigned = true;
-
-            // Save the updated agent data
             await this.userRepository.save(agent);
 
-            // Emit the agent assignment event (e.g., notifying the system)
             await this.natsClient
                 .emit('agent.assigned', {
                     agentId: agent.id,
@@ -68,13 +141,13 @@ export class UserService {
                 room: chatRoom,
             };
         } else {
-            // If no agent is available, add the user to the queue and wait for an agent
             await this.natsClient
                 .emit('user.request', {
                     userId,
                     roomId: chatRoom.id,
                     language,
                     department,
+                    initialMessage,
                 })
                 .toPromise();
 
@@ -95,19 +168,20 @@ export class UserService {
         }
         return this.userRepository.find();
     }
+
     async allRequestForActiveUsers() {
         return await this.userRepository.find({
             where: { isRequested: true },
         });
     }
 
-    async agentJoinQueue(agentName: string) {
-        const agent = await this.userRepository.findByUsername(agentName);
-        if (!agent) throw new NotFoundException(`${agentName} not found.`);
+    async agentJoinQueue(id: number) {
+        const agent = await this.userRepository.findById(id);
+        if (!agent) throw new NotFoundException(`agent not found.`);
 
         if (agent.status === AgentStatus.READY) {
             return {
-                message: `Agent: ${agentName} is already ready.`,
+                message: `Agent: ${agent.username} is already ready.`,
             };
         }
 
@@ -135,30 +209,24 @@ export class UserService {
                 .toPromise();
 
             return {
-                username: agentName,
+                username: agent.username,
                 roomNo: queuedRoom.id,
-                message: `Agent ${agentName} assigned to roomNo: '${queuedRoom.id}'`,
+                message: `Agent ${agent.username} assigned to roomNo: '${queuedRoom.id}'`,
             };
         }
 
-        return { message: `Agent ${agentName} is now ready.` };
+        return { message: `Agent ${agent.username} is now ready.` };
     }
 
-    async agentBusy(agentName: string) {
-        const agent = await this.userRepository.findByUsername(agentName);
+    async agentBusy(id: number) {
+        const agent = await this.userRepository.findById(id);
 
-        if (!agent) throw new NotFoundException(`${agentName} not found.`);
-
-        if (agent.status === AgentStatus.BUSY) {
-            return {
-                message: `Agent: ${agentName} is already busy.`,
-            };
-        }
+        if (!agent) throw new NotFoundException(`${agent.username} not found.`);
 
         await this.userRepository.updateAgentStatus(agent.id, AgentStatus.BUSY);
 
         return {
-            message: `Agent: ${agentName} is now busy.`,
+            message: `Agent: ${agent.username} is now busy.`,
         };
     }
 
@@ -210,26 +278,52 @@ export class UserService {
     }
 
     // get all manager with relation agent
-    async getAllManagers() {
-        const managers = await this.userRepository.getAllManagers();
+    async getAllManagers(
+        name: string,
+        isActive: boolean,
+        pageRequest: PageRequest,
+    ) {
+        // const managers = await this.userRepository.getAllManagers();
 
-        // Map over the managers and agents to filter out sensitive information
-        const filteredManagers = managers.map((manager) => {
-            // Remove sensitive fields
-            const { password, twoFASecret, otp, resetToken, ...managerData } =
-                manager;
+        const queryBuilder = this.userRepository.createQueryBuilder('user');
 
-            // Filter agents as well
-            const filteredAgents = manager.agents?.map((agent) => {
-                const { password, twoFASecret, otp, resetToken, ...agentData } =
-                    agent;
-                return agentData; // Return filtered agent data without sensitive information
-            });
+        UserSpecification.distinctUsers(queryBuilder);
+        UserSpecification.matchName(queryBuilder, name);
+        UserSpecification.matchStatus(queryBuilder, isActive);
+        UserSpecification.matchRole(queryBuilder, Role.MANAGER);
 
-            return { ...managerData, agents: filteredAgents }; // Return manager data without sensitive fields
-        });
+        // Load agents relation
+        queryBuilder.leftJoinAndSelect('user.agents', 'agent');
 
-        return filteredManagers;
+        const [users, total] = await queryBuilder
+            .orderBy('user.id', 'DESC')
+            .skip(pageRequest.page * pageRequest.size)
+            .take(pageRequest.size)
+            .getManyAndCount();
+
+        // // Map over the managers and agents to filter out sensitive information
+        // const filteredManagers = managers.map((manager) => {
+        //     // Remove sensitive fields
+        //     const { password, twoFASecret, otp, resetToken, ...managerData } =
+        //         manager;
+        //
+        //     // Filter agents as well
+        //     const filteredAgents = manager.agents?.map((agent) => {
+        //         const { password, twoFASecret, otp, resetToken, ...agentData } =
+        //             agent;
+        //         return agentData; // Return filtered agent data without sensitive information
+        //     });
+        //
+        //     return { ...managerData, agents: filteredAgents }; // Return manager data without sensitive fields
+        // });
+
+        return createPaginatedResponse(
+            users.map((user) => {
+                return user.getDto();
+            }),
+            total,
+            pageRequest,
+        );
     }
 
     async queueListForManager(managerId: number) {
@@ -250,7 +344,7 @@ export class UserService {
         return filteredQueue;
     }
 
-    async queueListForAgent(agentId: number) {
+    async queueListForAgent(agentId: number, pageRequest: PageRequest) {
         const agent = await this.userRepository.findById(agentId);
         console.log('Agent found: ', agent);
         if (agent.role !== 'agent')
@@ -486,4 +580,78 @@ export class UserService {
     //         faqs: agent.faqs, // Return the FAQs associated with the agent
     //     };
     // }
+
+    async updateUserDetails(id: number, updateData: UpdateUserDto) {
+        // Fetch the user by ID
+        const user = await this.userRepository.findOne({ where: { id } });
+
+        if (!user) {
+            throw new NotFoundException(`User with ID ${id} not found.`);
+        }
+
+        // Update only the fields that are provided in the DTO
+        if (updateData.username) {
+            user.username = updateData.username;
+        }
+
+        if (updateData.email) {
+            user.email = updateData.email;
+        }
+
+        if (updateData.password) {
+            user.password = updateData.password;
+        }
+
+        if (updateData.role) {
+            user.role = updateData.role;
+        }
+
+        if (updateData.isActive !== undefined) {
+            user.isActive = updateData.isActive;
+        }
+
+        if (updateData.languages) {
+            user.languages = updateData.languages;
+        }
+
+        if (updateData.departments) {
+            user.departments = updateData.departments;
+        }
+
+        if (updateData.status) {
+            user.status = updateData.status;
+        }
+
+        if (updateData.accountStatus) {
+            user.accountStatus = updateData.accountStatus;
+        }
+
+        if (updateData.is2FAEnabled !== undefined) {
+            user.is2FAEnabled = updateData.is2FAEnabled;
+        }
+
+        if (updateData.twoFAVerified !== undefined) {
+            user.twoFAVerified = updateData.twoFAVerified;
+        }
+
+        if (updateData.isRequested !== undefined) {
+            user.isRequested = updateData.isRequested;
+        }
+
+        if (updateData.isAssigned !== undefined) {
+            user.isAssigned = updateData.isAssigned;
+        }
+
+        if (updateData.message) {
+            user.message = updateData.message;
+        }
+
+        // Save the updated user back to the database
+        await this.userRepository.save(user);
+
+        return {
+            message: 'User details updated successfully.',
+            // user,
+        };
+    }
 }

@@ -127,6 +127,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         await this.chatService.saveMessage(Number(roomIdStr), sender, message);
 
         this.server.to(roomIdStr).emit('newMessage', { sender, message });
+
+        client.emit('messageSent', { sender, message });
     }
 
     @SubscribeMessage('getChatHistory')
