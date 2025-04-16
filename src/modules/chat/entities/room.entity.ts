@@ -9,6 +9,7 @@ import {
     PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Message } from './message.entity';
+import { IsOptional } from 'class-validator';
 
 @Entity()
 export class Room {
@@ -43,6 +44,10 @@ export class Room {
     @Column({ type: 'varchar', nullable: true, length: 255 })
     initialMessage?: string;
 
+    @IsOptional()
+    @Column({ type: 'boolean', default: true, name: 'active', nullable: true })
+    active: boolean;
+
     getDto() {
         return {
             id: this.id,
@@ -50,6 +55,7 @@ export class Room {
             userId: this.userId,
             agentId: this.agentId,
             message: this.messages?.[this.messages.length - 1]?.content || '',
+            active: this.active,
             createdAt: this.createdAt,
         };
     }

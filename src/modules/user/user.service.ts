@@ -1,9 +1,4 @@
-import {
-    BadRequestException,
-    Inject,
-    Injectable,
-    NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { AgentStatus, Role } from 'src/enums/user-role';
 import { ChatService } from '../chat/chat.service';
@@ -14,7 +9,7 @@ import { UpdateUserDto } from './dto/UpdateUser.dto';
 import { UserRepository } from './user.repository';
 import { PageRequest } from '../../common/dto/page-request.dto';
 import { UserSpecification } from './user.specification.dto';
-import { createPaginatedResponse } from '../../common/dto/pagination.dto';
+import { createCustomPaginatedResponse, createPaginatedResponse } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class UserService {
@@ -93,18 +88,8 @@ export class UserService {
     //     }
     // }
 
-    async requestAssistance(
-        userId: string,
-        language: string,
-        department: string,
-        initialMessage?: string,
-    ) {
-        const chatRoom = await this.roomRepository.createRoomForUser(
-            userId,
-            language,
-            department,
-            initialMessage,
-        );
+    async requestAssistance(userId: string, language: string, department: string, initialMessage?: string) {
+        const chatRoom = await this.roomRepository.createRoomForUser(userId, language, department, initialMessage);
 
         // ✅ Save the initial message as first chat message
         // if (initialMessage) {
@@ -118,10 +103,7 @@ export class UserService {
 
         console.log('Room created: Here', chatRoom);
 
-        const agent = await this.userRepository.findReadyUnassignedAgent(
-            language,
-            department,
-        );
+        const agent = await this.userRepository.findReadyUnassignedAgent(language, department);
 
         if (agent) {
             await this.roomRepository.assignAgentToRoom(chatRoom.id, agent.id);
@@ -162,6 +144,19 @@ export class UserService {
         return await this.chatService.getWaitingUsers();
     }
 
+    async updateUserStatus(id: number, status: boolean) {
+        const user = await this.userRepository.findById(id);
+        console.log('User found: ', user);
+        if (!user) throw new NotFoundException(`User not found.`);
+
+        user.isActive = status;
+        await this.userRepository.save(user);
+
+        return {
+            message: `User ${user.username} status updated to ${user.isActive}.`,
+        };
+    }
+
     async getAllUsers(role?: Role) {
         if (role) {
             return this.userRepository.find({ where: { role } });
@@ -169,10 +164,20 @@ export class UserService {
         return this.userRepository.find();
     }
 
-    async allRequestForActiveUsers() {
-        return await this.userRepository.find({
-            where: { isRequested: true },
-        });
+    async allRequestForActiveUsers(requestType: string, pageRequest: PageRequest) {
+        const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+        UserSpecification.distinctUsers(queryBuilder);
+        UserSpecification.matchType(queryBuilder, requestType);
+        UserSpecification.isRequested(queryBuilder, true);
+
+        const [users, total] = await queryBuilder
+            .orderBy('user.id', 'DESC')
+            .skip(pageRequest.page * pageRequest.size)
+            .take(pageRequest.size)
+            .getManyAndCount();
+
+        return createPaginatedResponse(users, total, pageRequest);
     }
 
     async agentJoinQueue(id: number) {
@@ -185,18 +190,12 @@ export class UserService {
             };
         }
 
-        await this.userRepository.updateAgentStatus(
-            agent.id,
-            AgentStatus.READY,
-        );
+        await this.userRepository.updateAgentStatus(agent.id, AgentStatus.READY);
 
         const queuedRoom = await this.roomRepository.findUnassignedRoom();
 
         if (queuedRoom) {
-            await this.roomRepository.assignAgentToRoom(
-                queuedRoom.id,
-                agent.id,
-            );
+            await this.roomRepository.assignAgentToRoom(queuedRoom.id, agent.id);
             agent.activeChatCount += 1;
             agent.isAssigned = true;
             await this.userRepository.save(agent);
@@ -230,10 +229,17 @@ export class UserService {
         };
     }
 
-    async finishAgentChat(agentId: number) {
+    async finishAgentChat(agentId: number, roomId: number) {
         const agent = await this.userRepository.findOne({
             where: { id: agentId, role: Role.AGENT },
         });
+
+        const room = await this.roomRepository.getRoomById(roomId);
+
+        room.active = false;
+
+        await this.roomRepository.save(room);
+
         if (!agent) throw new NotFoundException(`Agent ${agentId} not found.`);
 
         agent.activeChatCount = Math.max(agent.activeChatCount - 1, 0);
@@ -247,22 +253,37 @@ export class UserService {
             agent.isAssigned = true;
             await this.userRepository.save(agent);
 
-            await this.natsClient
-                .emit('agent.assigned', { agentId, roomId: queuedRoom.id })
-                .toPromise();
+            await this.natsClient.emit('agent.assigned', { agentId, roomId: queuedRoom.id }).toPromise();
 
             return { message: `Agent reassigned to room ${queuedRoom.id}.` };
         }
 
         return {
-            message: agent.isAssigned
-                ? 'Agent finished one chat but still active.'
-                : 'Agent is ready (no room available).',
+            message: agent.isAssigned ? 'Agent finished one chat but still active.' : 'Agent is ready (no room available).',
         };
     }
 
-    async getAllAgents() {
-        return this.userRepository.find({ where: { role: Role.AGENT } });
+    async getAllAgents(name: string, isActive: boolean, pageRequest: PageRequest) {
+        const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+        UserSpecification.distinctUsers(queryBuilder);
+        UserSpecification.matchName(queryBuilder, name);
+        UserSpecification.matchStatus(queryBuilder, isActive);
+        UserSpecification.matchRole(queryBuilder, Role.AGENT);
+
+        const [users, total] = await queryBuilder
+            .orderBy('user.id', 'DESC')
+            .skip(pageRequest.page * pageRequest.size)
+            .take(pageRequest.size)
+            .getManyAndCount();
+
+        return createPaginatedResponse(
+            users.map((user) => {
+                return user.getDto();
+            }),
+            total,
+            pageRequest,
+        );
     }
 
     async getAllReadyAgents() {
@@ -278,11 +299,7 @@ export class UserService {
     }
 
     // get all manager with relation agent
-    async getAllManagers(
-        name: string,
-        isActive: boolean,
-        pageRequest: PageRequest,
-    ) {
+    async getAllManagers(name: string, isActive: boolean, pageRequest: PageRequest) {
         // const managers = await this.userRepository.getAllManagers();
 
         const queryBuilder = this.userRepository.createQueryBuilder('user');
@@ -328,45 +345,65 @@ export class UserService {
 
     async queueListForManager(managerId: number) {
         const manager = await this.userRepository.findById(managerId);
-        if (manager.role !== 'manager')
-            throw new NotFoundException(`Manager not found.`);
+        if (manager.role !== 'manager') throw new NotFoundException(`Manager not found.`);
 
         const queue = await this.getQueueSize();
 
         // check manager languages and departments are match with queue languages and departments
         const filteredQueue = queue.waitingRooms.filter((room) => {
-            return (
-                manager.languages.includes(room.language) &&
-                manager.departments.includes(room.department)
-            );
+            return manager.languages.includes(room.language) && manager.departments.includes(room.department);
         });
 
         return filteredQueue;
     }
 
+    // async queueListForAgent(agentId: number, pageRequest: PageRequest) {
+    //     const agent = await this.userRepository.findById(agentId);
+    //     console.log('Agent found: ', agent);
+    //     if (agent.role !== 'agent') throw new NotFoundException(`Agent not found.`);
+    //
+    //     const queue = await this.getQueueSize();
+    //
+    //     if (agent.departments == null || agent.languages == null) {
+    //         throw new BadRequestException(`Agent ${agent.username} has no assigned departments or languages.`);
+    //     }
+    //
+    //     // check agent languages and departments are match with queue languages and departments
+    //     const filteredQueue = queue.waitingRooms.filter((room) => {
+    //         return agent.languages.includes(room.language) && agent.departments.includes(room.department);
+    //     });
+    //
+    //     return filteredQueue;
+    // }
+
     async queueListForAgent(agentId: number, pageRequest: PageRequest) {
         const agent = await this.userRepository.findById(agentId);
         console.log('Agent found: ', agent);
-        if (agent.role !== 'agent')
-            throw new NotFoundException(`Agent not found.`);
+
+        if (agent.role !== 'agent') throw new NotFoundException(`Agent not found.`);
 
         const queue = await this.getQueueSize();
 
         if (agent.departments == null || agent.languages == null) {
-            throw new BadRequestException(
-                `Agent ${agent.username} has no assigned departments or languages.`,
-            );
+            throw new BadRequestException(`Agent ${agent.username} has no assigned departments or languages.`);
         }
 
-        // check agent languages and departments are match with queue languages and departments
+        // Filter rooms based on agent's languages and departments
         const filteredQueue = queue.waitingRooms.filter((room) => {
-            return (
-                agent.languages.includes(room.language) &&
-                agent.departments.includes(room.department)
-            );
+            return agent.languages.includes(room.language) && agent.departments.includes(room.department);
         });
 
-        return filteredQueue;
+        // Calculate pagination details
+        const total = filteredQueue.length;
+        const totalPages = Math.ceil(total / pageRequest.size);
+        const startIndex = pageRequest.page * pageRequest.size; // Ensure startIndex is calculated correctly
+        const endIndex = startIndex + pageRequest.size;
+
+        // Get the paginated rooms (slice filteredQueue array)
+        const paginatedQueue = filteredQueue.slice(startIndex, endIndex);
+
+        // Return paginated response
+        return createCustomPaginatedResponse(paginatedQueue, total, pageRequest);
     }
 
     async getAgentsChatByManager(managerId: number) {
@@ -376,9 +413,7 @@ export class UserService {
         });
 
         if (!manager) {
-            throw new NotFoundException(
-                `Manager with ID ${managerId} not found.`,
-            );
+            throw new NotFoundException(`Manager with ID ${managerId} not found.`);
         }
 
         const agents = manager.agents; // Get all agents for this manager
@@ -411,12 +446,8 @@ export class UserService {
                 roomWithDetails.push({
                     roomId: room.id,
                     userId: room.userId, // The userId of the person in the room
-                    lastMessage: lastMessage
-                        ? lastMessage.content
-                        : 'No messages yet', // Last message content
-                    firstMessageTime: firstMessage
-                        ? firstMessage.timestamp
-                        : null, // Timestamp of the first message
+                    lastMessage: lastMessage ? lastMessage.content : 'No messages yet', // Last message content
+                    firstMessageTime: firstMessage ? firstMessage.timestamp : null, // Timestamp of the first message
                 });
             }
 
@@ -440,25 +471,16 @@ export class UserService {
         });
 
         if (!manager) {
-            throw new NotFoundException(
-                `Manager with ID ${managerId} not found.`,
-            );
+            throw new NotFoundException(`Manager with ID ${managerId} not found.`);
         }
 
         const agents = manager.agents; // Get all agents for this manager
 
         // If an agent name is provided, filter the agents by name
-        const filteredAgents = agentName
-            ? agents.filter(
-                  (agent) =>
-                      agent.username.toLowerCase() === agentName.toLowerCase(),
-              )
-            : agents;
+        const filteredAgents = agentName ? agents.filter((agent) => agent.username.toLowerCase() === agentName.toLowerCase()) : agents;
 
         if (filteredAgents.length === 0) {
-            throw new NotFoundException(
-                `No agents found with the name: ${agentName}`,
-            );
+            throw new NotFoundException(`No agents found with the name: ${agentName}`);
         }
 
         // Fetch all rooms assigned to the filtered agents
@@ -487,12 +509,8 @@ export class UserService {
                 allRooms.push({
                     roomId: room.id,
                     userId: room.userId, // The userId of the person in the room
-                    lastMessage: lastMessage
-                        ? lastMessage.content
-                        : 'No messages yet', // Last message content
-                    firstMessageTime: firstMessage
-                        ? firstMessage.timestamp
-                        : null, // Timestamp of the first message
+                    lastMessage: lastMessage ? lastMessage.content : 'No messages yet', // Last message content
+                    firstMessageTime: firstMessage ? firstMessage.timestamp : null, // Timestamp of the first message
                 });
             }
         }
@@ -529,9 +547,7 @@ export class UserService {
         });
 
         if (!manager) {
-            throw new NotFoundException(
-                `Manager with ID ${managerId} not found.`,
-            );
+            throw new NotFoundException(`Manager with ID ${managerId} not found.`);
         }
 
         // Fetch the agent's username and status
@@ -640,6 +656,10 @@ export class UserService {
 
         if (updateData.isAssigned !== undefined) {
             user.isAssigned = updateData.isAssigned;
+        }
+
+        if (updateData.requestedType !== undefined) {
+            user.requestedType = updateData.requestedType;
         }
 
         if (updateData.message) {

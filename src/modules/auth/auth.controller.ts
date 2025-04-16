@@ -7,7 +7,7 @@ import {
     HttpCode,
     Param,
     Patch,
-    Post,
+    Post, Query,
     Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -21,6 +21,7 @@ import { CheckTotpDto } from './dto/check-totp.dto';
 import { ForgotUserNameDto } from './dto/forgot-username.dto';
 import { LoginDto } from './dto/login.dto';
 import { LostMyDeviceDto } from './dto/lost-my-device.dto';
+import { PageRequest } from '../../common/dto/page-request.dto';
 
 @Controller(`/`)
 export class AuthController {
@@ -153,8 +154,12 @@ export class AuthController {
 
     @HttpCode(200)
     @Get(`${API_PREFIX}/auth/user-activation-request-list`)
-    async userActivationList() {
-        return await this.userService.allRequestForActiveUsers();
+    async userActivationList(
+        @Query('requestedType') requestedType: string,
+        @Query('page') page: number,
+        @Query('size') size: number,
+    ) {
+        return await this.userService.allRequestForActiveUsers( requestedType, new PageRequest(page, size));
     }
 
     // --------------------------Lost my device-----------------------------

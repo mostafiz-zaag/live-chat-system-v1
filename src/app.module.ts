@@ -25,6 +25,11 @@ import { FaqModule } from './modules/FAQ/faq.module';
 import { NatsModule } from './modules/nats/nats.module';
 import { UserModule } from './modules/user/user.module';
 import { SeederModule } from './seeder/seeder.module';
+import { JwtMiddleware } from './security/jwt.middleware';
+import { SharedModule } from './common/modules/shared.module';
+import { SecurityUtil } from './utils/security.util';
+import { JwtService } from '@nestjs/jwt';
+import { JwtTokenUtil } from './utils/jwt-token.util';
 
 @Module({
     imports: [
@@ -63,12 +68,12 @@ export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {
         consumer
             .apply(RequestMiddleware)
-            .forRoutes('*')
+            .forRoutes('/*')
             .apply(LoggerMiddleware) // Apply LoggerMiddleware globally
-            .forRoutes('*')
-            // .apply(JwtMiddleware) // Apply JwtMiddleware to routes containing "secured"
-            // .forRoutes('*secured*')
+            .forRoutes('/*')
+            .apply(JwtMiddleware) // Apply JwtMiddleware to routes containing "secured"
+            .forRoutes('/{*path}secured{/*path}')
             .apply(StaticFileCheckMiddleware)
-            .forRoutes('/static/*'); // Apply to all static file routes;
+            .forRoutes('/static/*'); // Apply to all static file-upload routes;
     }
 }

@@ -25,7 +25,7 @@ export class MessageRepository extends Repository<Message> {
     }
 
     async getChatHistory(roomId: number): Promise<Message[]> {
-        return this.find({
+        return await this.find({
             where: { room: { id: roomId } },
             order: { timestamp: 'ASC' },
         });
