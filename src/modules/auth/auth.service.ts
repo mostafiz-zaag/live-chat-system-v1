@@ -1,8 +1,4 @@
-import {
-    BadRequestException,
-    Injectable,
-    NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { randomInt } from 'crypto';
 import { addMinutes } from 'date-fns';
@@ -46,10 +42,7 @@ export class AuthService {
         console.log('🔑 Entered Password:', password);
         console.log('🔒 Stored Hashed Password:', user.password);
 
-        const isPasswordValid = await this.securityUtil.matchPassword(
-            password,
-            user.password,
-        );
+        const isPasswordValid = await this.securityUtil.matchPassword(password, user.password);
         console.log('✅ Password Match Result:', isPasswordValid);
 
         if (!isPasswordValid) return null;
@@ -116,9 +109,7 @@ export class AuthService {
         // ✅ **Step 1: Check if OTP exists and is not expired**
         if (!user.otp || !user.otpExpires || user.otpExpires < new Date()) {
             console.log('🚨 OTP expired or missing.');
-            throw new BadRequestException(
-                'OTP expired. Please request a new one.',
-            );
+            throw new BadRequestException('OTP expired. Please request a new one.');
         }
 
         // ✅ **Step 2: Compare OTP**
@@ -141,20 +132,14 @@ export class AuthService {
         if (user.isTemporaryPassword) {
             return {
                 isTemporaryPassword: true,
-                message:
-                    'You must change your password before accessing the system.',
+                message: 'You must change your password before accessing the system.',
             };
         }
 
         console.log('user role....', user.role);
 
         // ✅ **Step 5: Generate JWT Token for Normal Login**
-        const customerPrincipal = new CustomPrincipal(
-            user.id,
-            user.username,
-            user.role,
-            user.isActive,
-        );
+        const customerPrincipal = new CustomPrincipal(user.id, user.username, user.role, user.isActive);
 
         const accessToken = this.jwtTokenUtil.generateToken(customerPrincipal);
 
@@ -197,8 +182,7 @@ export class AuthService {
         }
 
         // **STEP 4: Hash New Password**
-        const hashedPassword =
-            await this.securityUtil.encryptPassword(newPassword);
+        const hashedPassword = await this.securityUtil.encryptPassword(newPassword);
 
         // **STEP 5: Update User Password and Set `isTemporaryPassword = false`**
         user.password = hashedPassword;
@@ -236,8 +220,7 @@ export class AuthService {
         await this.mailService.sendOtpEmail(user.email, otp);
 
         return {
-            message:
-                'OTP sent to your email. Please verify OTP to reset your password.',
+            message: 'OTP sent to your email. Please verify OTP to reset your password.',
         };
     }
 
@@ -294,24 +277,20 @@ export class AuthService {
     // }
 
     async register(userDto: any): Promise<any> {
-        const loggedInUser = await this.securityUtil.getLoggedInUser();
-
-        if (loggedInUser.roleAliases !== 'admin') {
-            throw new BadRequestException('Only admin can register users');
-        }
+        // const loggedInUser = await this.securityUtil.getLoggedInUser();
+        //
+        // if (loggedInUser.roleAliases !== 'admin') {
+        //     throw new BadRequestException('Only admin can register users');
+        // }
 
         // Check if user already exists
-        const existingUser = await this.userRepository.findByUsername(
-            userDto.username,
-        );
+        const existingUser = await this.userRepository.findByUsername(userDto.username);
         if (existingUser) {
             throw new Error('User already exists with that username');
         }
 
         // Check if email already exists
-        const existingEmail = await this.userRepository.findByEmail(
-            userDto.email,
-        );
+        const existingEmail = await this.userRepository.findByEmail(userDto.email);
 
         if (existingEmail) {
             throw new Error('User already exists with that email');
@@ -321,9 +300,7 @@ export class AuthService {
         const hashedPassword = await bcrypt.hash(userDto.password, 10);
 
         // Generate 2FA secret for the new user
-        const secret = this.authenticatorService.generateSecret(
-            userDto.username,
-        );
+        const secret = this.authenticatorService.generateSecret(userDto.username);
 
         // Generate the QR Code URL using the secret
         const qrCodeUrl = `otpauth://totp/${userDto.username}?secret=${secret.base32}&issuer=${COMPANY_NAME}`;
@@ -345,9 +322,7 @@ export class AuthService {
             if (!userDto.managerId) {
                 throw new Error('Manager ID is required for agents.');
             }
-            const manager = await this.userRepository.findById(
-                userDto.managerId,
-            );
+            const manager = await this.userRepository.findById(userDto.managerId);
             if (!manager || manager.role !== 'manager') {
                 throw new Error('Manager not found.');
             }
@@ -376,25 +351,16 @@ export class AuthService {
         if (!user) throw new NotFoundException('User not found');
 
         // Check if the token matches
-        const isValid = await this.authenticatorService.verifyToken(
-            user.twoFASecret,
-            token,
-        );
+        const isValid = await this.authenticatorService.verifyToken(user.twoFASecret, token);
 
         if (!isValid) {
             throw new BadRequestException('Invalid token');
         }
 
         // generate jwt token
-        const customerPrincipal = new CustomPrincipal(
-            user.id,
-            user.username,
-            user.role,
-            user.isActive,
-        );
+        const customerPrincipal = new CustomPrincipal(user.id, user.username, user.role, user.isActive);
 
-        const jwt_secret =
-            await this.jwtTokenUtil.generateToken(customerPrincipal);
+        const jwt_secret = await this.jwtTokenUtil.generateToken(customerPrincipal);
 
         // Enable 2FA and mark the user as verified
         user.is2FAEnabled = true;
@@ -413,10 +379,7 @@ export class AuthService {
         if (!user) throw new NotFoundException('User not found');
 
         // Check if the token matches
-        const isValid = await this.authenticatorService.verifyToken(
-            user.twoFASecret,
-            token,
-        );
+        const isValid = await this.authenticatorService.verifyToken(user.twoFASecret, token);
         if (!isValid) {
             throw new Error('Invalid token');
         }
@@ -438,21 +401,12 @@ export class AuthService {
         const qrCodeUrl = `otpauth://totp/${user.username}?secret=${secret.base32}&issuer=${COMPANY_NAME}`;
 
         // Generate the QR code image buffer (PNG format)
-        const qrCodeBuffer = await this.authenticatorService.generateQrCode(
-            qrCodeUrl,
-            user.username,
-        );
+        const qrCodeBuffer = await this.authenticatorService.generateQrCode(qrCodeUrl, user.username);
 
         // 3. Generate JWT token if everything is valid
-        const customerPrincipal = new CustomPrincipal(
-            user.id,
-            user.username,
-            user.role,
-            user.isActive,
-        );
+        const customerPrincipal = new CustomPrincipal(user.id, user.username, user.role, user.isActive);
 
-        const jwtToken =
-            await this.jwtTokenUtil.generateToken(customerPrincipal);
+        const jwtToken = await this.jwtTokenUtil.generateToken(customerPrincipal);
 
         return {
             message: 'Login successful',
@@ -461,8 +415,7 @@ export class AuthService {
     }
 
     async updateAdminUsernames(username: string) {
-        const admin =
-            await this.userRepository.findByUsernameAndAdmin(username);
+        const admin = await this.userRepository.findByUsernameAndAdmin(username);
 
         console.log('🔍 Found admin:', admin);
         if (!admin) {
@@ -475,10 +428,7 @@ export class AuthService {
         // Generate the QR code URL that the authenticator app can use
         const qrCodeUrl = `otpauth://totp/${admin.username}?secret=${secret.base32}&issuer=${COMPANY_NAME}`;
 
-        const qrCodeBuffer = await this.authenticatorService.generateQrCode(
-            qrCodeUrl,
-            admin.username,
-        );
+        const qrCodeBuffer = await this.authenticatorService.generateQrCode(qrCodeUrl, admin.username);
 
         // Save the generated secret in the database for the user
         admin.twoFASecret = secret.base32;
@@ -519,18 +469,13 @@ export class AuthService {
     // admin log in flow
     async adminLogin(dto: AdminLoginDto): Promise<any> {
         // 1. Find user by username
-        const user = await this.userRepository.findByUsernameAndAdmin(
-            dto.username,
-        );
+        const user = await this.userRepository.findByUsernameAndAdmin(dto.username);
         if (!user) {
             throw new NotFoundException('Admin not found');
         }
 
         // check password
-        const isPasswordValid = await this.securityUtil.matchPassword(
-            dto.password,
-            user.password,
-        );
+        const isPasswordValid = await this.securityUtil.matchPassword(dto.password, user.password);
 
         if (!isPasswordValid) {
             throw new BadRequestException('Invalid credentials');
@@ -549,9 +494,7 @@ export class AuthService {
 
     // change username
     async changeUsername(chnageUsernameDto: ChangeUsernameDto): Promise<any> {
-        const user = await this.userRepository.findByUsername(
-            chnageUsernameDto.oldUsername,
-        );
+        const user = await this.userRepository.findByUsername(chnageUsernameDto.oldUsername);
 
         if (!user) {
             throw new NotFoundException('User not found');
@@ -560,9 +503,7 @@ export class AuthService {
         user.username = chnageUsernameDto.newUsername;
 
         await this.userRepository.save(user);
-        const result = await this.generate2FASecret(
-            chnageUsernameDto.newUsername,
-        );
+        const result = await this.generate2FASecret(chnageUsernameDto.newUsername);
         console.log('result', result);
         return {
             message: `Username changed successfully to '${user.username}'`,
@@ -585,10 +526,7 @@ export class AuthService {
         const qrCodeUrl = `otpauth://totp/${user.username}?secret=${secret.base32}&issuer=${COMPANY_NAME}`;
 
         // Generate the QR code image buffer (PNG format)
-        const qrCodeBuffer = await this.authenticatorService.generateQrCode(
-            qrCodeUrl,
-            user.username,
-        );
+        const qrCodeBuffer = await this.authenticatorService.generateQrCode(qrCodeUrl, user.username);
 
         // Save the generated secret in the database for the user
         user.twoFASecret = secret.base32;
@@ -636,13 +574,11 @@ export class AuthService {
 
         return {
             status: user.isActive ? 'active' : 'in_active',
-            message: user.isActive
-                ? 'Your account is active'
-                : 'Your account is not active',
+            message: user.isActive ? 'Your account is active' : 'Your account is not active',
         };
     }
 
-    async userActivation(username: string): Promise<any> {
+    async userActivationRequest(username: string, requestType: UserRequestType): Promise<any> {
         const user = await this.userRepository.findByUsername(username);
 
         if (!user) {
@@ -650,23 +586,23 @@ export class AuthService {
         }
 
         user.isRequested = true;
-        await this.userRepository.save(user);
+        user.requestedType = requestType; // Correctly assign the requestType enum
+        user.requestedDate = new Date();
+
+        const res = await this.userRepository.save(user);
+        console.log('User account activated:', res);
 
         return {
-            message: 'User activated request successfully',
+            message: 'User activation request successfully processed',
         };
     }
 
     async lostDevice(lostMyDevice: LostMyDeviceDto): Promise<any> {
-        const user = await this.userRepository.findByUsername(
-            lostMyDevice.username,
-        );
+        const user = await this.userRepository.findByUsername(lostMyDevice.username);
 
         if (lostMyDevice.email) {
             if (user.email !== lostMyDevice.email) {
-                throw new BadRequestException(
-                    'Email does not match with username',
-                );
+                throw new BadRequestException('Email does not match with username');
             }
         }
 
@@ -685,9 +621,7 @@ export class AuthService {
     }
 
     async forgotUsername(forgotUserNameDto: ForgotUserNameDto): Promise<any> {
-        const user = await this.userRepository.findByEmail(
-            forgotUserNameDto.email,
-        );
+        const user = await this.userRepository.findByEmail(forgotUserNameDto.email);
 
         if (!user) {
             throw new NotFoundException('User not found');
@@ -731,10 +665,7 @@ export class AuthService {
     }
 
     // ADMIN ACCESS
-    async deleteUser(
-        username: string,
-        checkTotpDto: CheckTotpDto,
-    ): Promise<any> {
+    async deleteUser(username: string, checkTotpDto: CheckTotpDto): Promise<any> {
         const user = await this.userRepository.findByUsername(username);
 
         if (!user) {
@@ -743,10 +674,7 @@ export class AuthService {
 
         // check TOTP
 
-        const verified = await this.check2FACode(
-            checkTotpDto.username,
-            checkTotpDto.token,
-        );
+        const verified = await this.check2FACode(checkTotpDto.username, checkTotpDto.token);
 
         if (!verified) {
             throw new BadRequestException('Invalid TOTP token');

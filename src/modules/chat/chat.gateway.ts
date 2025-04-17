@@ -13,7 +13,7 @@ import { ChatService } from './chat.service';
 import { instrument } from '@socket.io/admin-ui';
 
 @WebSocketGateway({
-    cors: { origin: "*" },
+    cors: { origin: '*' },
     transports: ['websocket', 'polling'],
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {

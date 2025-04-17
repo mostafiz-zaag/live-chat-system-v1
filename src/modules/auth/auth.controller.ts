@@ -1,15 +1,4 @@
-import {
-    BadRequestException,
-    Body,
-    Controller,
-    Delete,
-    Get,
-    HttpCode,
-    Param,
-    Patch,
-    Post, Query,
-    Res,
-} from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { UserRegisterDto } from '../user/dto/user-register.dto';
@@ -22,10 +11,12 @@ import { ForgotUserNameDto } from './dto/forgot-username.dto';
 import { LoginDto } from './dto/login.dto';
 import { LostMyDeviceDto } from './dto/lost-my-device.dto';
 import { PageRequest } from '../../common/dto/page-request.dto';
+import { UserRequestType } from '../../enums/user-request-type.enum';
 
 @Controller(`/`)
 export class AuthController {
     userRepository: any;
+
     constructor(
         private readonly authService: AuthService,
         private readonly userService: UserService,
@@ -43,6 +34,7 @@ export class AuthController {
     async register(@Body() registerDto: UserRegisterDto) {
         return this.authService.register(registerDto);
     }
+
     // @HttpCode(200) // Ensure response is 200 OK
     // @Post(`${API_PREFIX}/auth/verify-otp`)
     // async verifyOtp(@Body() dto: VerifyOtpDto) {
@@ -65,14 +57,10 @@ export class AuthController {
 
     // Endpoint to generate 2FA secret and return the QR code URL
     @Get(`${API_PREFIX}/auth/generate-2fa/:username`)
-    async generate2FA(
-        @Param('username') username: string,
-        @Res() res: Response,
-    ) {
+    async generate2FA(@Param('username') username: string, @Res() res: Response) {
         try {
             // Generate the 2FA secret and QR code
-            const { secret, qrCodeUrl, qrCodeBuffer } =
-                await this.authService.generate2FASecret(username);
+            const { secret, qrCodeUrl, qrCodeBuffer } = await this.authService.generate2FASecret(username);
 
             // res.setHeader('Content-Type', 'image/png');
             // res.setHeader(
@@ -114,16 +102,10 @@ export class AuthController {
     // Login with 2FA
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/verify-2fa`)
-    async verify2FA(
-        @Body('username') username: string,
-        @Body('token') token: string,
-    ) {
+    async verify2FA(@Body('username') username: string, @Body('token') token: string) {
         try {
             // Attempt 2FA verification
-            const result = await this.authService.verify2FAToken(
-                username,
-                token,
-            );
+            const result = await this.authService.verify2FAToken(username, token);
 
             return result
                 ? {
@@ -133,9 +115,7 @@ export class AuthController {
                   }
                 : { message: 'Invalid 2FA token' };
         } catch (error) {
-            throw new BadRequestException(
-                error.message || 'Something went wrong',
-            );
+            throw new BadRequestException(error.message || 'Something went wrong');
         }
     }
 
@@ -148,18 +128,20 @@ export class AuthController {
 
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/user-activation-request`)
-    async userActivation(@Body('username') username: string) {
-        return this.authService.userActivation(username);
+    async userActivationRequest(@Body('username') username: string, @Body('requestedType') requestedType: UserRequestType) {
+        return this.authService.userActivationRequest(username, requestedType);
     }
 
     @HttpCode(200)
-    @Get(`${API_PREFIX}/auth/user-activation-request-list`)
-    async userActivationList(
-        @Query('requestedType') requestedType: string,
-        @Query('page') page: number,
-        @Query('size') size: number,
-    ) {
-        return await this.userService.allRequestForActiveUsers( requestedType, new PageRequest(page, size));
+    @Get(`${API_PREFIX}/auth/user-request-list`)
+    async userActivationList(@Query('requestedType') requestedType: string, @Query('page') page: number, @Query('size') size: number) {
+        return await this.userService.allRequestForActiveUsers(requestedType, new PageRequest(page, size));
+    }
+
+    @HttpCode(200)
+    @Patch(`${API_PREFIX}/auth/request-list/user/:id`)
+    async updateRequestStatus(@Param('id') id: number, @Query('accept') accept: boolean) {
+        return await this.userService.updateRequestStatus(id, accept);
     }
 
     // --------------------------Lost my device-----------------------------
@@ -188,10 +170,7 @@ export class AuthController {
 
     @HttpCode(200)
     @Delete(`${API_PREFIX}/auth/user/delete/:username`)
-    async deleteUser(
-        @Param('username') username: string,
-        @Body() checkTotpDto: CheckTotpDto,
-    ) {
+    async deleteUser(@Param('username') username: string, @Body() checkTotpDto: CheckTotpDto) {
         return this.authService.deleteUser(username, checkTotpDto);
     }
 

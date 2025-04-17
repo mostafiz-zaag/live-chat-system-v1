@@ -674,4 +674,49 @@ export class UserService {
             // user,
         };
     }
+
+    async findUserById(id: number) {
+        const user = await this.userRepository.findById(id);
+
+        if (!user) {
+            throw new NotFoundException(`User with ID ${id} not found.`);
+        }
+        return user;
+    }
+
+    async updateStatus(id: number, status: boolean) {
+        const user = await this.userRepository.findById(id);
+        if (!user) throw new NotFoundException(`User not found.`);
+
+        if (status == true) {
+            user.status = AgentStatus.READY;
+        } else {
+            user.status = AgentStatus.BUSY;
+        }
+
+        await this.userRepository.save(user);
+    }
+
+    async updateRequestStatus(id: number, accept: boolean) {
+        const user = await this.userRepository.findById(id);
+
+        if (!user) throw new NotFoundException(`User not found.`);
+
+        if (accept) {
+            user.isRequested = false;
+            user.isActive = true;
+            user.accountStatus = 'active';
+        } else {
+            user.isRequested = false;
+            user.isActive = false;
+            user.accountStatus = 'inactive';
+        }
+
+        const ans = await this.userRepository.save(user);
+
+        console.log('User updated: ', ans);
+        return {
+            message: `User ${user.username} request status updated to ${accept ? 'accepted' : 'rejected'}.`,
+        };
+    }
 }

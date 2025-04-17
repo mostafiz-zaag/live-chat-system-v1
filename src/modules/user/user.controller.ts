@@ -46,17 +46,44 @@ export class UserController {
     //     return this.usersService.agentBusy(username);
     // }
 
+    // @Patch(`${API_PREFIX}/users/agent/status`)
+    // async setAgentStatus(
+    //     @Query('id') id: string,
+    //     @Query('ready') ready: boolean, // using string since query params are string by default
+    // ) {
+    //     console.log(id, ready);
+    //     if (ready === true) {
+    //         return this.usersService.agentJoinQueue(+id);
+    //     } else {
+    //         return this.usersService.agentBusy(+id);
+    //     }
+    // }
+
     @Patch(`${API_PREFIX}/users/agent/status`)
     async setAgentStatus(
         @Query('id') id: string,
         @Query('ready') ready: boolean, // using string since query params are string by default
     ) {
         console.log(id, ready);
+
+        let user;
+
         if (ready === true) {
-            return this.usersService.agentJoinQueue(+id);
+            // Update the agent status and fetch user details
+            await this.usersService.agentJoinQueue(+id);
+            await this.usersService.updateStatus(+id, true); // just for update the user status
+            user = await this.usersService.findUserById(+id); // Assuming this method exists to get the user details
         } else {
-            return this.usersService.agentBusy(+id);
+            // Update the agent status and fetch user details
+            await this.usersService.agentBusy(+id);
+            user = await this.usersService.findUserById(+id); // Assuming this method exists to get the user details
         }
+
+        // Return the updated user details along with the status update
+        return {
+            // status: ready ? 'available' : 'busy',
+            user,
+        };
     }
 
     @Get(`${API_PREFIX}/users/agents/all-busy`)
