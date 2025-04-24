@@ -1,14 +1,5 @@
 // src/department/department.controller.ts
-import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { PageRequest } from 'src/common/dto/page-request.dto';
 import { API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { DepartmentService } from './department.service';
@@ -26,17 +17,8 @@ export class DepartmentController {
 
     // Get all departments
     @Get()
-    async findAll(
-        @Query('name') name: string,
-        @Query('page') page: number,
-        @Query('size') size: number,
-        @Query('isActive') isActive: boolean,
-    ) {
-        return this.departmentService.findAll(
-            name,
-            isActive,
-            new PageRequest(page, size),
-        );
+    async findAll(@Query('name') name: string, @Query('page') page: number, @Query('size') size: number, @Query('isActive') isActive: boolean) {
+        return this.departmentService.findAll(name, isActive, new PageRequest(page, size));
     }
 
     // Get a department by ID
@@ -47,10 +29,7 @@ export class DepartmentController {
 
     // Update a department
     @Patch('/update')
-    async update(
-        @Query('id') id: number,
-        @Body('name') name: string,
-    ): Promise<Department> {
+    async update(@Query('id') id: number, @Body('name') name: string): Promise<Department> {
         return this.departmentService.update(id, name);
     }
 
@@ -63,10 +42,7 @@ export class DepartmentController {
 
     // upadte status
     @Patch('update/status')
-    async updateStatus(
-        @Query('id') id: number,
-        @Query('isActive') isActive: boolean,
-    ): Promise<Department> {
+    async updateStatus(@Query('id') id: number, @Query('isActive') isActive: boolean): Promise<Department> {
         console.log('isActive', isActive);
         return this.departmentService.updateStatus(+id, isActive);
     }

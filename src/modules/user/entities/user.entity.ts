@@ -1,18 +1,9 @@
 import { AccountStatus } from 'src/enums/account-status.enum';
 import { Room } from 'src/modules/chat/entities/room.entity';
 import { Faq } from 'src/modules/FAQ/faq.entity';
-import {
-    BeforeInsert,
-    Column,
-    CreateDateColumn,
-    Entity,
-    ManyToOne,
-    OneToMany,
-    PrimaryGeneratedColumn,
-    UpdateDateColumn,
-} from 'typeorm';
+import { BeforeInsert, Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { AgentStatus, Role } from '../../../enums/user-role';
-import { Exclude } from 'class-transformer';
+import { LiteManagerDto } from '../dto/LiteManager.dto';
 
 @Entity()
 export class User {
@@ -130,4 +121,22 @@ export class User {
     @OneToMany(() => Room, (room) => room.user)
     rooms: Room[];
 
+    getDto() {
+        const managerDTO = new LiteManagerDto();
+        managerDTO.id = this.manager?.id;
+        managerDTO.username = this.manager?.username;
+
+        return {
+            id: this.id,
+            email: this.email,
+            username: this.username,
+            role: this.role,
+            isActive: this.isActive,
+            status: this.status,
+            accountStatus: this.accountStatus,
+            departments: this.departments,
+            languages: this.languages,
+            manager: managerDTO,
+        };
+    }
 }

@@ -9,6 +9,7 @@ import {
     PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Message } from './message.entity';
+import { IsOptional } from 'class-validator';
 
 @Entity()
 export class Room {
@@ -18,8 +19,8 @@ export class Room {
     @Column()
     name: string;
 
-    @Column({ type: 'varchar', nullable: true })
-    userId: string | null; // Keep as varchar or nullable string
+    @Column({ type: 'varchar', nullable: true, name: 'user_id', length: 255 })
+    userId: string; // Keep as varchar or nullable string
 
     @Column({ type: 'int', nullable: true })
     agentId: number | null;
@@ -37,6 +38,25 @@ export class Room {
     @Column({ type: 'text', nullable: true })
     department?: string;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
+
+    @Column({ type: 'varchar', nullable: true, length: 255 })
+    initialMessage?: string;
+
+    @IsOptional()
+    @Column({ type: 'boolean', default: true, name: 'active', nullable: true })
+    active: boolean;
+
+    getDto() {
+        return {
+            id: this.id,
+            name: this.name,
+            userId: this.userId,
+            agentId: this.agentId,
+            message: this.messages?.[this.messages.length - 1]?.content || '',
+            active: this.active,
+            createdAt: this.createdAt,
+        };
+    }
 }

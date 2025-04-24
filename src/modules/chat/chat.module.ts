@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Agent } from '../agents/entities/agent.entity'; // Import the Agent entity
+import { CommonModule } from '../common/common.module';
 import { S3ConfigService } from '../config/s3.config';
 import { UserRepository } from '../user/user.repository';
 import { ChatController } from './chat.controller';
@@ -16,6 +17,7 @@ import { RoomRepository } from './repositories/room.repository';
     imports: [
         TypeOrmModule.forFeature([Message, Room, Agent]), // Add Agent to the array
         EventEmitterModule.forRoot(),
+        CommonModule,
     ],
     controllers: [ChatController],
     providers: [

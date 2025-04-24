@@ -3,10 +3,14 @@ import { instanceToPlain } from 'class-transformer';
 import { PageRequest } from 'src/common/dto/page-request.dto';
 import { createPaginatedResponse } from 'src/common/dto/pagination.dto';
 import { Role } from 'src/enums/user-role';
-import { ResourceNotFoundException } from 'src/exceptions';
+import {
+    InvalidRequestException,
+    ResourceNotFoundException,
+} from 'src/exceptions';
 import { SecurityUtil } from 'src/utils/security.util';
 import { FaqRepository } from './faq.repository';
 import { FAQSpecification } from './faq.specification';
+
 @Injectable()
 export class FaqService {
     constructor(
@@ -87,11 +91,11 @@ export class FaqService {
     async getAdminAndOwnAgentFaqs(
         sentence: string,
         self: boolean,
-        pagerequest: PageRequest,
+        pageRequest: PageRequest,
     ) {
         const queryBuilder = this.faqRepository
             .createQueryBuilder('faq')
-            .leftJoin('faq.createdBy', 'createdBy');
+            .leftJoinAndSelect('faq.createdBy', 'createdBy');
 
         const user = await this.securityUtil.getLoggedInUser();
 
@@ -105,9 +109,11 @@ export class FaqService {
 
         const [faqs, total] = await queryBuilder
             .orderBy('faq.id', 'DESC')
+            .skip(pageRequest.page * pageRequest.size)
+            .take(pageRequest.size)
             .getManyAndCount();
 
-        return createPaginatedResponse(faqs, total, pagerequest);
+        return createPaginatedResponse(faqs, total, pageRequest);
     }
 
     async updateIsActive(id: number, isActive: boolean) {
@@ -133,7 +139,9 @@ export class FaqService {
 
         // Allow only the creator to update
         if (faq.createdBy?.id !== loggedInUser.userId) {
-            throw new Error('You are not authorized to update this FAQ.');
+            throw new InvalidRequestException(
+                'You are not authorized to update this FAQ.',
+            );
         }
 
         faq.sentence = sentence;
