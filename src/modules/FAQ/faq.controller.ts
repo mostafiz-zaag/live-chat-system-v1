@@ -1,13 +1,4 @@
-import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { PageRequest } from 'src/common/dto/page-request.dto';
 import { API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { Role } from 'src/enums/user-role';
@@ -28,40 +19,18 @@ export class FaqController {
     }
 
     @Patch('/update')
-    async updateOwnFaqSentence(
-        @Query('id') id: number,
-        @Body('sentence') sentence: string,
-    ) {
+    async updateOwnFaqSentence(@Query('id') id: number, @Body('sentence') sentence: string) {
         return this.faqService.updateOwnFaqSentence(id, sentence);
     }
 
     @Get('/all')
-    async getAdminAndOwnAgentFaqs(
-        @Query('sentence') sentence: string,
-        @Query('self') self: boolean,
-        @Query('page') page: number,
-        @Query('size') size: number,
-    ) {
-        return await this.faqService.getAdminAndOwnAgentFaqs(
-            sentence,
-            self,
-            new PageRequest(page, size),
-        );
+    async getAdminAndOwnAgentFaqs(@Query('sentence') sentence: string, @Query('self') self: boolean, @Query('page') page: number, @Query('size') size: number) {
+        return await this.faqService.getAdminAndOwnAgentFaqs(sentence, self, new PageRequest(page, size));
     }
 
     @Get(`/admin`)
-    async getAdminFaqs(
-        @Query('sentence') sentence: string,
-        @Query('isActive') isActive: boolean,
-        @Query('page') page: number,
-        @Query('size') size: number,
-    ) {
-        return await this.faqService.getFaqsByRole(
-            Role.ADMIN,
-            sentence,
-            isActive,
-            new PageRequest(page, size),
-        );
+    async getAdminFaqs(@Query('sentence') sentence: string, @Query('isActive') isActive: boolean, @Query('page') page: number, @Query('size') size: number) {
+        return await this.faqService.getFaqsByRole(Role.ADMIN, sentence, isActive, new PageRequest(page, size));
     }
 
     // @Get(`/agent`)
@@ -70,10 +39,7 @@ export class FaqController {
     // }
 
     @Patch('admin/update/status')
-    async updateFAQStatus(
-        @Query('id') id: number,
-        @Query('isActive') status: boolean,
-    ) {
+    async updateFAQStatus(@Query('id') id: number, @Query('isActive') status: boolean) {
         return this.faqService.updateIsActive(id, status);
     }
 }

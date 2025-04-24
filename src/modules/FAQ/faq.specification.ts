@@ -13,7 +13,7 @@ export class FAQSpecification {
         sentence: string,
     ): SelectQueryBuilder<T> {
         if (sentence) {
-            return queryBuilder.andWhere('faq.sentence ILIKE :sentence', {
+            return queryBuilder.andWhere('faq.sentence LIKE :sentence', {
                 sentence: `%${sentence}%`,
             });
         }

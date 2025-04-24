@@ -1,12 +1,16 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AgentStatus } from 'src/enums/user-role';
+import { SecurityUtil } from 'src/utils/security.util';
 import { IsNull } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { S3ConfigService } from '../config/s3.config';
 import { UserRepository } from '../user/user.repository';
 import { MessageRepository } from './repositories/message.repository';
 import { RoomRepository } from './repositories/room.repository';
+import { PageRequest } from '../../common/dto/page-request.dto';
+import { createPaginatedResponse } from '../../common/dto/pagination.dto';
+import { Message } from './entities/message.entity';
 
 @Injectable()
 export class ChatService implements OnModuleInit {
@@ -16,6 +20,7 @@ export class ChatService implements OnModuleInit {
         private readonly userRepository: UserRepository,
         private readonly eventEmitter: EventEmitter2,
         private readonly s3ConfigService: S3ConfigService,
+        private readonly securityUtil: SecurityUtil,
     ) {}
 
     onModuleInit() {
@@ -23,10 +28,7 @@ export class ChatService implements OnModuleInit {
     }
 
     async createRoom(userId: string, language: string, department: string) {
-        const agent = await this.userRepository.findReadyUnassignedAgent(
-            language,
-            department,
-        );
+        const agent = await this.userRepository.findReadyUnassignedAgent(language, department);
 
         let chatRoom = this.roomRepository.create({
             name: `room_${userId}`,
@@ -58,17 +60,27 @@ export class ChatService implements OnModuleInit {
         }
     }
 
+    // async getWaitingUsers() {
+    //     const waitingRooms = await this.roomRepository.getWaitingRooms();
+    //     return {
+    //         queueSize: waitingRooms.length,
+    //         waitingRooms: waitingRooms.map((room) => ({
+    //             roomId: room.id,
+    //             userId: room.userId ?? 'Unknown',
+    //             roomName: room.name,
+    //             department: room.department,
+    //             language: room.language,
+    //             initialMessage: initialMessage?.content ?? null,
+    //         })),
+    //     };
+    // }
+
     async getWaitingUsers() {
         const waitingRooms = await this.roomRepository.getWaitingRooms();
+
         return {
             queueSize: waitingRooms.length,
-            waitingRooms: waitingRooms.map((room) => ({
-                roomId: room.id,
-                userId: room.userId ?? 'Unknown',
-                roomName: room.name,
-                department: room.department,
-                language: room.language,
-            })),
+            waitingRooms: waitingRooms,
         };
     }
 
@@ -91,19 +103,51 @@ export class ChatService implements OnModuleInit {
         return this.roomRepository.findOne({ where: { id: roomId } });
     }
 
-    async saveMessage(roomId: number, sender: string, content: string) {
-        return this.messageRepository.saveMessage(roomId, sender, content);
+    async saveMessage(roomId: number, sender: string, content: string): Promise<Message> {
+        const message = new Message();
+
+        const room = await this.roomRepository.findOne({
+            where: { id: roomId },
+        });
+
+        message.type = 'text';
+        message.room = room;
+        message.sender = sender;
+        message.content = content;
+        message.timestamp = new Date();
+
+        return await this.messageRepository.save(message);
     }
 
-    async getChatHistory(roomId: number) {
-        return this.messageRepository.getChatHistory(roomId);
+    async getChatHistory(roomId: number, pageRequest: PageRequest) {
+        // const chatHistory = await this.messageRepository.getChatHistory(roomId);
+
+        const queryBuilder = this.messageRepository.createQueryBuilder('message').leftJoinAndSelect('message.room', 'room');
+
+        const [chatHistories, total] = await queryBuilder
+            .where('message.roomId = :roomId', { roomId })
+            .orderBy('message.timestamp', 'ASC')
+            .skip(pageRequest.page * pageRequest.size)
+            .take(pageRequest.size)
+            .getManyAndCount();
+
+        const chatHistoryDto = chatHistories.map((message) => {
+            const { id, room, sender, timestamp, type, content } = message;
+            const baseDto = {
+                id,
+                roomId: room.id,
+                sender,
+                timestamp,
+                type,
+            };
+
+            return type === 'file' ? { ...baseDto, fileUrl: content } : { ...baseDto, content };
+        });
+
+        return createPaginatedResponse(chatHistoryDto, total, pageRequest);
     }
 
-    async uploadFile(
-        file: Express.Multer.File,
-        roomId: string,
-        senderType: string,
-    ) {
+    async uploadFile(file: Express.Multer.File, roomId: string, senderType: string) {
         const fileKey = `${roomId}/${uuidv4()}-${file.originalname}`;
 
         const params = {
@@ -118,13 +162,9 @@ export class ChatService implements OnModuleInit {
 
         const fileUrl = `${process.env.S3_URL}/${this.s3ConfigService.getBucketName()}/${fileKey}`;
 
-        await this.messageRepository.saveMessage(
-            Number(roomId),
-            senderType,
-            fileUrl,
-        );
+        await this.messageRepository.saveMessage(Number(roomId), senderType, fileUrl, 'file');
 
-        this.eventEmitter.emit('file.uploaded', { roomId, fileUrl });
+        this.eventEmitter.emit('file.uploaded', { roomId, fileUrl, senderType });
 
         return { fileUrl, fileKey };
     }
@@ -158,10 +198,7 @@ export class ChatService implements OnModuleInit {
 
         const waitingRoom = await this.getNextWaitingRoom();
         if (waitingRoom) {
-            await this.roomRepository.assignAgentToRoom(
-                waitingRoom.id,
-                agentId,
-            );
+            await this.roomRepository.assignAgentToRoom(waitingRoom.id, agentId);
 
             agent.isAssigned = true;
             agent.status = AgentStatus.BUSY;
@@ -187,19 +224,37 @@ export class ChatService implements OnModuleInit {
         });
     }
 
-    async getAssignedRooms(agentId: number) {
-        const rooms = await this.roomRepository.find({
-            where: { agentId },
-            relations: ['messages'],
+    async getAssignedRooms(agentId: number, pageRequest: PageRequest) {
+        const queryBuilder = this.roomRepository.createQueryBuilder('room').leftJoinAndSelect('room.messages', 'messages');
+
+        const [rooms, total] = await queryBuilder
+            .where('room.agentId = :agentId', { agentId })
+            .orderBy({
+                'room.active': 'DESC', // Sort by active first (true before false)
+                'room.createdAt': 'DESC', // Then sort by createdAt within each active group
+            })
+            .skip(pageRequest.page * pageRequest.size)
+            .take(pageRequest.size)
+            .getManyAndCount();
+
+        const roomDTOs = rooms.map((value) => {
+            return value.getDto();
         });
 
-        return rooms.map((room) => ({
-            roomId: room.id,
-            userId: room.userId,
-            roomName: room.name,
-            message: room.messages?.[room.messages.length - 1]?.content || '',
-            createdAt: room.createdAt, // Send the createdAt timestamp to frontend
-        }));
+        return createPaginatedResponse(roomDTOs, total, pageRequest);
+
+        // const rooms = await this.roomRepository.find({
+        //     where: { agentId },
+        //     relations: ['messages'],
+        // });
+
+        // return rooms.map((room) => ({
+        //     roomId: room.id,
+        //     userId: room.userId,
+        //     roomName: room.name,
+        //     message: room.messages?.[room.messages.length - 1]?.content || '',
+        //     createdAt: room.createdAt, // Send the createdAt timestamp to frontend
+        // }));
     }
 
     async getQueuedRooms() {
@@ -214,6 +269,45 @@ export class ChatService implements OnModuleInit {
             roomName: room.name,
             message: room.messages?.[room.messages.length - 1]?.content || '',
             createdAt: room.createdAt, // Send the createdAt timestamp to frontend
+            initialMessage: room.initialMessage,
         }));
+    }
+
+    async joinChat(roomId: number) {
+        const loggedInUser = await this.securityUtil.getLoggedInUser();
+        // Find the room that the agent is joining
+        const room = await this.roomRepository.findOne({
+            where: { id: roomId },
+        });
+
+        if (!room) {
+            throw new NotFoundException(`Room with ID ${roomId} not found.`);
+        }
+
+        // Check if the room is in the queue (i.e., no agent has been assigned)
+        // if (room.agentId !== null) {
+        //     throw new BadRequestException(
+        //         `This room has already been taken by an agent.`,
+        //     );
+        // }
+
+        // Assign the agent to the room
+        room.agentId = loggedInUser.userId; // Assuming loggedInUser has the agentId
+
+        // Save the updated room
+        await this.roomRepository.save(room);
+
+        // Optionally, you may want to update the agent's active chat count
+        const agent = await this.userRepository.findOne({
+            where: { id: loggedInUser.userId },
+        });
+        if (!agent) {
+            throw new NotFoundException(`Agent with ID ${loggedInUser.userId} not found.`);
+        }
+
+        agent.activeChatCount += 1; // Increase the active chat count for the agent
+        await this.userRepository.save(agent);
+
+        return room; // Return the updated room
     }
 }

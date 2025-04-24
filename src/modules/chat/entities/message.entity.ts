@@ -22,6 +22,12 @@ export class Message {
     @CreateDateColumn({ type: 'timestamp' })
     timestamp: Date;
 
+    @Column({ type: 'varchar', nullable: true, length: 255 })
+    initialMessage?: string;
+
     @ManyToOne(() => Room, (room) => room.messages)
     room: Room; // Relationship with Room entity
+
+    @Column({ type: 'varchar', nullable: true, length: 255 })
+    type?: string;
 }
