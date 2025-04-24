@@ -126,7 +126,7 @@ export class ChatService implements OnModuleInit {
 
         const [chatHistories, total] = await queryBuilder
             .where('message.roomId = :roomId', { roomId })
-            .orderBy('message.timestamp', 'ASC')
+            .orderBy('message.timestamp', 'DESC')
             .skip(pageRequest.page * pageRequest.size)
             .take(pageRequest.size)
             .getManyAndCount();
@@ -280,9 +280,19 @@ export class ChatService implements OnModuleInit {
             where: { id: roomId },
         });
 
+        console.log('room', room);
+
         if (!room) {
             throw new NotFoundException(`Room with ID ${roomId} not found.`);
         }
+
+        const message = new Message();
+        message.type = 'text';
+        message.room = room;
+        message.sender = room.userId; // Assuming loggedInUser has the userId
+        message.content = room.initialMessage;
+
+        await this.messageRepository.save(message);
 
         // Check if the room is in the queue (i.e., no agent has been assigned)
         // if (room.agentId !== null) {

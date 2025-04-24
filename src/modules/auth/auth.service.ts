@@ -4,7 +4,7 @@ import { randomInt } from 'crypto';
 import { addMinutes } from 'date-fns';
 import { COMPANY_NAME } from 'src/constants/global.constant';
 import { UserRequestType } from 'src/enums/user-request-type.enum';
-import { ResourceNotFoundException } from 'src/exceptions';
+import { ResourceAlreadyExistException, ResourceNotFoundException } from 'src/exceptions';
 import { MailService } from 'src/mail/mail.service';
 import { AuthenticatorService } from 'src/security/authenticator.service';
 import { CustomPrincipal } from '../../payloads/custom.principle';
@@ -21,6 +21,7 @@ import { CheckTotpDto } from './dto/check-totp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ForgotUserNameDto } from './dto/forgot-username.dto';
 import { LostMyDeviceDto } from './dto/lost-my-device.dto';
+import { Role } from '../../enums/user-role';
 
 @Injectable()
 export class AuthService {

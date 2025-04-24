@@ -35,6 +35,11 @@ export class AuthController {
         return this.authService.register(registerDto);
     }
 
+    // @Post(`${API_PREFIX}/auth/create-admin`)
+    // async createAdmin() {
+    //     return this.authService.createAdmin('admin', 'admin@123');
+    // }
+
     // @HttpCode(200) // Ensure response is 200 OK
     // @Post(`${API_PREFIX}/auth/verify-otp`)
     // async verifyOtp(@Body() dto: VerifyOtpDto) {

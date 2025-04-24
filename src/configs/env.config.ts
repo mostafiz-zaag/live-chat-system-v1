@@ -12,6 +12,7 @@ export const envConfig = {
     ADMIN_FULL_NAME: process.env.ADMIN_FULL_NAME,
     ADMIN_FIRST_NAME: process.env.ADMIN_FIRST_NAME,
     ADMIN_LAST_NAME: process.env.ADMIN_LAST_NAME,
+    ADMIN_USERNAME: process.env.ADMIN_USERNAME,
     ADMIN_EMAIL: process.env.ADMIN_EMAIL,
     ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
     SMTP_HOST: process.env.SMTP_HOST,
