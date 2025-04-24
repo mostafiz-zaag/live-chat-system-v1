@@ -89,6 +89,11 @@ export class UserService {
     // }
 
     async requestAssistance(userId: string, language: string, department: string, initialMessage?: string) {
+        // generate a random userId if not provided
+        if (!userId) {
+            userId = Math.random().toString(36).substring(2, 10); // Generate a random string
+        }
+
         const chatRoom = await this.roomRepository.createRoomForUser(userId, language, department, initialMessage);
 
         // ✅ Save the initial message as first chat message
@@ -264,7 +269,7 @@ export class UserService {
     }
 
     async getAllAgents(name: string, isActive: boolean, pageRequest: PageRequest) {
-        const queryBuilder = this.userRepository.createQueryBuilder('user');
+        const queryBuilder = this.userRepository.createQueryBuilder('user').leftJoinAndSelect('user.manager', 'manager');
 
         UserSpecification.distinctUsers(queryBuilder);
         UserSpecification.matchName(queryBuilder, name);

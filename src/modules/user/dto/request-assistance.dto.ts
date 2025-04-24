@@ -2,7 +2,7 @@
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class RequestAssistanceDto {
-    @IsString({ message: 'userId must be a string' })
+    // @IsString({ message: 'userId must be a string' })
     userId: string;
 
     @IsString({ message: 'language must be a string' })

@@ -29,10 +29,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // File: src/modules/chat/chat.gateway.ts
     afterInit() {
-        instrument(this.server, { auth: false }
-        );
+        instrument(this.server, { auth: false });
         console.log('WebSocket server initialized');
-
     }
 
     handleConnection(client: Socket) {
