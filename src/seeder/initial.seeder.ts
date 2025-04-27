@@ -50,6 +50,8 @@ export class InitialSeeder implements OnModuleInit {
             newAdmin.role = Role.ADMIN;
             newAdmin.isTemporaryPassword = true;
             newAdmin.twoFASecret = secret.base32; // Save the 2FA secret
+            newAdmin.isActive = true; // Set the user as active
+            newAdmin.accountStatus = 'active'; // Set the account status to active
 
             // Save the user
             const savedAdmin = await this.userRepository.save(newAdmin);

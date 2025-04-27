@@ -126,7 +126,7 @@ export class ChatService implements OnModuleInit {
 
         const [chatHistories, total] = await queryBuilder
             .where('message.roomId = :roomId', { roomId })
-            .orderBy('message.timestamp', 'DESC')
+            .orderBy('message.timestamp', 'ASC')
             .skip(pageRequest.page * pageRequest.size)
             .take(pageRequest.size)
             .getManyAndCount();
@@ -275,6 +275,7 @@ export class ChatService implements OnModuleInit {
 
     async joinChat(roomId: number) {
         const loggedInUser = await this.securityUtil.getLoggedInUser();
+        console.log('loggedInUser', loggedInUser);
         // Find the room that the agent is joining
         const room = await this.roomRepository.findOne({
             where: { id: roomId },
@@ -290,7 +291,7 @@ export class ChatService implements OnModuleInit {
         message.type = 'text';
         message.room = room;
         message.sender = room.userId; // Assuming loggedInUser has the userId
-        message.content = room.initialMessage;
+        message.content = room.initialMessage || 'No message';
 
         await this.messageRepository.save(message);
 

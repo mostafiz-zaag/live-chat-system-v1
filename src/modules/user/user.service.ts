@@ -10,6 +10,8 @@ import { UserRepository } from './user.repository';
 import { PageRequest } from '../../common/dto/page-request.dto';
 import { UserSpecification } from './user.specification.dto';
 import { createCustomPaginatedResponse, createPaginatedResponse } from '../../common/dto/pagination.dto';
+import { ResourceNotFoundException } from '../../exceptions';
+import { SecurityUtil } from '../../utils/security.util';
 
 @Injectable()
 export class UserService {
@@ -20,6 +22,7 @@ export class UserService {
         private readonly userRepository: UserRepository,
         private readonly roomRepository: RoomRepository,
         private readonly messageRepository: MessageRepository,
+        private readonly securityUtil: SecurityUtil,
     ) {}
 
     // user.service.ts
@@ -95,6 +98,16 @@ export class UserService {
         }
 
         const chatRoom = await this.roomRepository.createRoomForUser(userId, language, department, initialMessage);
+
+        // save intial message
+        if (initialMessage) {
+            await this.messageRepository.save({
+                room: chatRoom,
+                sender: 'user',
+                content: initialMessage,
+                timestamp: new Date(),
+            });
+        }
 
         // ✅ Save the initial message as first chat message
         // if (initialMessage) {
@@ -382,8 +395,14 @@ export class UserService {
     // }
 
     async queueListForAgent(agentId: number, pageRequest: PageRequest) {
+        const loggedInUser = await this.securityUtil.getLoggedInUserId();
+
+        console.log('Logged in user ID:', loggedInUser);
         const agent = await this.userRepository.findById(agentId);
-        console.log('Agent found: ', agent);
+
+        if (!agent) {
+            throw new ResourceNotFoundException(`Agent not found.`);
+        }
 
         if (agent.role !== 'agent') throw new NotFoundException(`Agent not found.`);
 

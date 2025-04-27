@@ -8,12 +8,14 @@ import { User } from './entities/user.entity';
 import { UserController } from './user.controller';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
+import { CommonModule } from '../../common/modules/common.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([User]),
         ChatModule, // Ensure ChatModule is imported for `ChatService`
         NatsModule, // Ensure `NATS_SERVICE` is available
+        CommonModule,
     ],
     controllers: [UserController],
     providers: [UserService, UserRepository, RoomRepository, MessageRepository], // Add `RoomRepository` and `MessageRepository` to providers

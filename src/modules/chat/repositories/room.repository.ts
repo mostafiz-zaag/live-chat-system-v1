@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import { Room } from '../entities/room.entity';
 
 @Injectable()
@@ -27,8 +27,9 @@ export class RoomRepository extends Repository<Room> {
     }
 
     async getWaitingRooms(): Promise<Room[]> {
+        // update: not see in the list if user id is null
         return this.find({
-            where: { agentId: IsNull() },
+            where: { agentId: IsNull(), userId: Not(IsNull()) },
         });
     }
 
