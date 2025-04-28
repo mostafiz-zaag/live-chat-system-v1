@@ -1,11 +1,5 @@
 // src/modules/chat/entities/message.entity.ts
-import {
-    Column,
-    CreateDateColumn,
-    Entity,
-    ManyToOne,
-    PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Room } from './room.entity';
 
 @Entity()

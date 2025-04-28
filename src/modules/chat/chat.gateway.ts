@@ -121,7 +121,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         const createdAt = savedMessage.timestamp;
 
-        this.server.to(roomIdStr).emit('newMessage', { sender, message, createdAt });
+        console.log('savedMessage', savedMessage.room.id);
+        const newRoomId = savedMessage.room.id;
+
+        this.server.to(roomIdStr).emit('newMessage', { sender, message, createdAt, roomId: newRoomId });
 
         client.emit('messageSent', { sender, message });
     }
@@ -163,6 +166,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 // message: `📎 File uploaded: ${payload.fileUrl}`,
                 fileUrl: payload.fileUrl,
                 createdAt: new Date(),
+                roomId: Number(payload.roomId),
             });
         } else {
             console.error(`❌ WebSocket server is not initialized.`);

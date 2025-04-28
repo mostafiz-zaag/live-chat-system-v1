@@ -7,6 +7,7 @@ import { RequestAssistanceDto } from './dto/request-assistance.dto';
 import { UpdateUserDto } from './dto/UpdateUser.dto';
 import { UserService } from './user.service';
 import { PageRequest } from '../../common/dto/page-request.dto';
+import { UpdateAgentDto } from './dto/update-agent.dto';
 
 @Controller('/')
 export class UserController {
@@ -168,5 +169,13 @@ export class UserController {
     async updateUser(@Query('id') id: number, @Body() updateData: UpdateUserDto) {
         // Validate and update the user based on the provided data
         return this.usersService.updateUserDetails(+id, updateData);
+    }
+
+    @Patch(`${API_SECURED_PREFIX}/users/update/agent`)
+    async updateAgent(@Query('id') id: number, @Body() updateAgentDto: UpdateAgentDto) {
+        await this.usersService.updateAgent(+id, updateAgentDto);
+        return {
+            message: 'Agent updated successfully.',
+        };
     }
 }

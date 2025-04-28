@@ -8,7 +8,7 @@ export class UserSpecification {
 
     static matchName<T>(queryBuilder: SelectQueryBuilder<T>, name: string): SelectQueryBuilder<T> {
         if (name) {
-            return queryBuilder.andWhere('user.username LIKE :name', {
+            return queryBuilder.andWhere('user.username ILIKE :name', {
                 name: `%${name}%`,
             });
         }
