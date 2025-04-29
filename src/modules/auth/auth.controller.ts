@@ -100,8 +100,8 @@ export class AuthController {
 
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/admin/confirm-username`)
-    async comfirmUsername(@Body() chnageUsernameDto: ChangeUsernameDto) {
-        return this.authService.changeUsername(chnageUsernameDto);
+    async confirmUsername(@Body() changeUsernameDto: ChangeUsernameDto) {
+        return this.authService.changeUsername(changeUsernameDto);
     }
 
     // Login with 2FA
@@ -159,6 +159,7 @@ export class AuthController {
     @HttpCode(200)
     @Post(`${API_PREFIX}/auth/forgot-username`)
     async forgotUsername(@Body() forgotUserNameDto: ForgotUserNameDto) {
+        console.log('forgotUserNameDto', forgotUserNameDto);
         return this.authService.forgotUsername(forgotUserNameDto);
     }
 

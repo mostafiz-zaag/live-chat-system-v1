@@ -105,10 +105,13 @@ export class FaqService {
 
         const user = await this.securityUtil.getLoggedInUser();
 
+        const role = user.roleAliases;
+
         // Apply FAQ specifications
         FAQSpecification.distinctFaqs(queryBuilder);
         FAQSpecification.matchSentence(queryBuilder, sentence);
         FAQSpecification.matchAdminOrSelf(queryBuilder, user.userId);
+        FAQSpecification.matchRoleWiseActive(queryBuilder, role);
 
         if (self) {
             FAQSpecification.matchSelf(queryBuilder, user.userId);
@@ -131,13 +134,6 @@ export class FaqService {
         // Calculate `selfCount` and `allCount`
         const selfCount = await this.faqRepository.createQueryBuilder('faq').where('faq.createdBy = :userId', { userId: user.userId }).getCount();
 
-        // Calculate `allCount` (FAQs created by the logged-in user or an admin)
-        const allCount = await this.faqRepository
-            .createQueryBuilder('faq')
-            .leftJoin('faq.createdBy', 'createdBy')
-            .where('faq.createdById = :userId OR createdBy.role = :role', { userId: user.userId, role: 'admin' })
-            .getCount();
-
         // Modify the createdBy field to include only id and username
         const faqsDto = faqs.map((faq) => {
             return {
@@ -153,7 +149,7 @@ export class FaqService {
         if (pageRequest.page && pageRequest.size) {
             return {
                 selfCount,
-                allCount,
+                total,
                 ...createPaginatedResponse(faqsDto, total, pageRequest),
             };
         }
@@ -161,7 +157,7 @@ export class FaqService {
         // If no pagination is applied, return all FAQs
         return {
             selfCount,
-            allCount,
+            total,
             content: faqsDto,
         };
     }

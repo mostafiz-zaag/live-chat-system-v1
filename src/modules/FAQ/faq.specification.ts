@@ -1,5 +1,6 @@
 import { Role } from 'src/enums/user-role';
 import { SelectQueryBuilder } from 'typeorm';
+import { Faq } from './faq.entity';
 
 export class FAQSpecification {
     static distinctFaqs<T>(queryBuilder: SelectQueryBuilder<T>): SelectQueryBuilder<T> {
@@ -44,6 +45,15 @@ export class FAQSpecification {
                 adminRole: Role.ADMIN,
                 userId: userId,
             });
+        }
+        return queryBuilder;
+    }
+
+    static matchRoleWiseActive<T>(queryBuilder: SelectQueryBuilder<T>, role: string) {
+        if (role) {
+            if (role === Role.AGENT) {
+                return queryBuilder.andWhere('faq.isActive = true');
+            }
         }
         return queryBuilder;
     }
