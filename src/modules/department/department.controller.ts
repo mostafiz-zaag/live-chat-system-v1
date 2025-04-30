@@ -17,7 +17,7 @@ export class DepartmentController {
 
     // Get all departments
     @Get()
-    async findAll(@Query('name') name: string, @Query('page') page: number, @Query('size') size: number, @Query('isActive') isActive: boolean) {
+    async findAll(@Query('name') name: string, @Query('page') page: number, @Query('size') size: number, @Query('isActive') isActive: boolean = true) {
         return this.departmentService.findAll(name, isActive, new PageRequest(page, size));
     }
 

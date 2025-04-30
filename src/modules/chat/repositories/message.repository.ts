@@ -8,12 +8,7 @@ export class MessageRepository extends Repository<Message> {
         super(Message, dataSource.createEntityManager());
     }
 
-    async saveMessage(
-        roomId: number,
-        sender: string,
-        content: string,
-        typeOfFile?: string,
-    ): Promise<Message> {
+    async saveMessage(roomId: number, sender: string, content: string, typeOfFile?: string): Promise<Message> {
         const message = this.create({
             room: { id: roomId },
             sender,

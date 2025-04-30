@@ -119,17 +119,97 @@ export class ChatService implements OnModuleInit {
         return await this.messageRepository.save(message);
     }
 
+    // async getChatHistory(roomId: number, pageRequest: PageRequest) {
+    //     // const chatHistory = await this.messageRepository.getChatHistory(roomId);
+    //
+    //     const queryBuilder = this.messageRepository.createQueryBuilder('message').leftJoinAndSelect('message.room', 'room');
+    //
+    //     const [chatHistories, total] = await queryBuilder
+    //         .where('message.roomId = :roomId', { roomId })
+    //         .orderBy('message.timestamp', 'ASC')
+    //         .skip(pageRequest.page * pageRequest.size)
+    //         .take(pageRequest.size)
+    //         .getManyAndCount();
+    //
+    //     const chatHistoryDto = chatHistories.map((message) => {
+    //         const { id, room, sender, timestamp, type, content } = message;
+    //         const baseDto = {
+    //             id,
+    //             roomId: room.id,
+    //             sender,
+    //             timestamp,
+    //             type,
+    //         };
+    //
+    //         return type === 'file' ? { ...baseDto, fileUrl: content } : { ...baseDto, content };
+    //     });
+    //
+    //     return createPaginatedResponse(chatHistoryDto, total, pageRequest);
+    // }
+
     async getChatHistory(roomId: number, pageRequest: PageRequest) {
-        // const chatHistory = await this.messageRepository.getChatHistory(roomId);
+        // Create the query builder for fetching chat history
+
+        // // If no page or size is provided, we fetch all messages
+        // if (!pageRequest.page || !pageRequest.size) {
+        //     // Fetch all messages without pagination
+        //     const chatHistories = await queryBuilder.where('message.roomId = :roomId', { roomId }).orderBy('message.timestamp', 'ASC').getMany();
+        //
+        //     const chatHistoryDto = chatHistories.map((message) => {
+        //         const { id, room, sender, timestamp, type, content } = message;
+        //         const baseDto = {
+        //             id,
+        //             roomId: room.id,
+        //             sender,
+        //             timestamp,
+        //             type,
+        //         };
+        //
+        //         return type === 'file' ? { ...baseDto, fileUrl: content } : { ...baseDto, content };
+        //     });
+        //
+        //     return createPaginatedResponse(chatHistoryDto, chatHistories.length, pageRequest); // Provide total length as total
+        // } else {
+        //     // Apply pagination if page and size are provided
+        //     const [chatHistories, total] = await queryBuilder
+        //         .where('message.roomId = :roomId', { roomId })
+        //         .orderBy('message.timestamp', 'ASC')
+        //         .skip(pageRequest.page * pageRequest.size)
+        //         .take(pageRequest.size)
+        //         .getManyAndCount();
+        //
+        //     const chatHistoryDto = chatHistories.map((message) => {
+        //         const { id, room, sender, timestamp, type, content } = message;
+        //         const baseDto = {
+        //             id,
+        //             roomId: room.id,
+        //             sender,
+        //             timestamp,
+        //             type,
+        //         };
+        //
+        //         return type === 'file' ? { ...baseDto, fileUrl: content } : { ...baseDto, content };
+        //     });
+        //
+        //     return createPaginatedResponse(chatHistoryDto, total, pageRequest);
+        // }
 
         const queryBuilder = this.messageRepository.createQueryBuilder('message').leftJoinAndSelect('message.room', 'room');
 
-        const [chatHistories, total] = await queryBuilder
-            .where('message.roomId = :roomId', { roomId })
-            .orderBy('message.timestamp', 'ASC')
-            .skip(pageRequest.page * pageRequest.size)
-            .take(pageRequest.size)
-            .getManyAndCount();
+        // Apply pagination only if `page` and `size` are provided
+        if (pageRequest.page && pageRequest.size) {
+            queryBuilder
+                .where('message.roomId = :roomId', { roomId })
+                .orderBy('message.timestamp', 'ASC')
+                .skip(pageRequest.page * pageRequest.size)
+                .take(pageRequest.size);
+        } else {
+            // If no pagination is required, fetch all messages
+            queryBuilder.where('message.roomId = :roomId', { roomId }).orderBy('message.timestamp', 'ASC');
+        }
+
+        // Fetch the chat history data and count based on pagination conditions
+        const [chatHistories, total] = await queryBuilder.getManyAndCount();
 
         const chatHistoryDto = chatHistories.map((message) => {
             const { id, room, sender, timestamp, type, content } = message;
@@ -144,12 +224,49 @@ export class ChatService implements OnModuleInit {
             return type === 'file' ? { ...baseDto, fileUrl: content } : { ...baseDto, content };
         });
 
-        return createPaginatedResponse(chatHistoryDto, total, pageRequest);
+        if (pageRequest.page && pageRequest.size) {
+            return createPaginatedResponse(chatHistoryDto, total, pageRequest);
+        }
+        return {
+            content: chatHistoryDto,
+        };
     }
 
-    async uploadFile(file: Express.Multer.File, roomId: string, senderType: string) {
-        const fileKey = `${roomId}/${uuidv4()}-${file.originalname}`;
+    // async uploadFile(file: Express.Multer.File, roomId: string, senderType: string) {
+    //     const fileKey = `${roomId}/${uuidv4()}-${file.originalname}`;
+    //
+    //     const params = {
+    //         Bucket: this.s3ConfigService.getBucketName(),
+    //         Key: fileKey,
+    //         Body: file.buffer,
+    //         ContentType: file.mimetype,
+    //         ACL: 'public-read',
+    //     };
+    //
+    //     await this.s3ConfigService.s3.upload(params).promise();
+    //
+    //     const fileUrl = `${process.env.S3_URL}/${this.s3ConfigService.getBucketName()}/${fileKey}`;
+    //
+    //     await this.messageRepository.saveMessage(Number(roomId), senderType, fileUrl, 'file');
+    //
+    //     this.eventEmitter.emit('file.uploaded', { roomId, fileUrl, senderType });
+    //
+    //     return { fileUrl, fileKey };
+    // }
 
+    async uploadFile(file: Express.Multer.File, roomId: string, senderType: string) {
+        const roomIdNum = Number(roomId);
+        if (isNaN(roomIdNum)) {
+            throw new Error('Invalid roomId: must be a valid number');
+        }
+
+        // Verify room exists
+        const room = await this.roomRepository.findOne({ where: { id: roomIdNum } });
+        if (!room) {
+            throw new Error(`Room with id ${roomIdNum} not found`);
+        }
+
+        const fileKey = `${roomId}/${uuidv4()}-${file.originalname}`;
         const params = {
             Bucket: this.s3ConfigService.getBucketName(),
             Key: fileKey,
@@ -159,10 +276,9 @@ export class ChatService implements OnModuleInit {
         };
 
         await this.s3ConfigService.s3.upload(params).promise();
-
         const fileUrl = `${process.env.S3_URL}/${this.s3ConfigService.getBucketName()}/${fileKey}`;
 
-        await this.messageRepository.saveMessage(Number(roomId), senderType, fileUrl, 'file');
+        await this.messageRepository.saveMessage(roomIdNum, senderType, fileUrl, 'file');
 
         this.eventEmitter.emit('file.uploaded', { roomId, fileUrl, senderType });
 
@@ -224,37 +340,65 @@ export class ChatService implements OnModuleInit {
         });
     }
 
+    // async getAssignedRooms(agentId: number, pageRequest: PageRequest) {
+    //     const queryBuilder = this.roomRepository.createQueryBuilder('room').leftJoinAndSelect('room.messages', 'messages');
+    //
+    //     const [rooms, total] = await queryBuilder
+    //         .where('room.agentId = :agentId', { agentId })
+    //         .orderBy({
+    //             'room.active': 'DESC', // Sort by active first (true before false)
+    //             'room.createdAt': 'DESC', // Then sort by createdAt within each active group
+    //         })
+    //         .skip(pageRequest.page * pageRequest.size)
+    //         .take(pageRequest.size)
+    //         .getManyAndCount();
+    //
+    //     const roomDTOs = rooms.map((value) => {
+    //         return value.getDto();
+    //     });
+    //
+    //     return createPaginatedResponse(roomDTOs, total, pageRequest);
+    //
+    // }
+
     async getAssignedRooms(agentId: number, pageRequest: PageRequest) {
         const queryBuilder = this.roomRepository.createQueryBuilder('room').leftJoinAndSelect('room.messages', 'messages');
 
-        const [rooms, total] = await queryBuilder
-            .where('room.agentId = :agentId', { agentId })
-            .orderBy({
-                'room.active': 'DESC', // Sort by active first (true before false)
-                'room.createdAt': 'DESC', // Then sort by createdAt within each active group
-            })
-            .skip(pageRequest.page * pageRequest.size)
-            .take(pageRequest.size)
-            .getManyAndCount();
+        // Apply pagination only if `page` and `size` are provided
+        if (pageRequest.page && pageRequest.size) {
+            queryBuilder
+                .where('room.agentId = :agentId', { agentId })
+                .orderBy({
+                    'room.active': 'DESC', // Sort by active first (true before false)
+                    'room.createdAt': 'DESC', // Then sort by createdAt within each active group
+                })
+                .skip(pageRequest.page * pageRequest.size)
+                .take(pageRequest.size);
+        } else {
+            // If no pagination is required, fetch all rooms
+            queryBuilder.where('room.agentId = :agentId', { agentId }).orderBy({
+                'room.active': 'DESC',
+                'room.createdAt': 'DESC',
+            });
+        }
 
+        // Fetch the rooms data and count based on pagination conditions
+        const [rooms, total] = await queryBuilder.getManyAndCount();
+
+        // Map the room data to DTO format
         const roomDTOs = rooms.map((value) => {
             return value.getDto();
         });
 
-        return createPaginatedResponse(roomDTOs, total, pageRequest);
+        // If pagination was applied, return paginated response
+        if (pageRequest.page && pageRequest.size) {
+            return createPaginatedResponse(roomDTOs, total, pageRequest);
+        }
 
-        // const rooms = await this.roomRepository.find({
-        //     where: { agentId },
-        //     relations: ['messages'],
-        // });
-
-        // return rooms.map((room) => ({
-        //     roomId: room.id,
-        //     userId: room.userId,
-        //     roomName: room.name,
-        //     message: room.messages?.[room.messages.length - 1]?.content || '',
-        //     createdAt: room.createdAt, // Send the createdAt timestamp to frontend
-        // }));
+        // If no pagination was applied, return all rooms
+        return {
+            content: roomDTOs,
+        };
     }
 
     async getQueuedRooms() {
@@ -287,13 +431,14 @@ export class ChatService implements OnModuleInit {
             throw new NotFoundException(`Room with ID ${roomId} not found.`);
         }
 
-        const message = new Message();
-        message.type = 'text';
-        message.room = room;
-        message.sender = room.userId; // Assuming loggedInUser has the userId
-        message.content = room.initialMessage || 'No message';
-
-        await this.messageRepository.save(message);
+        // save: text on request assistance that's why comment here
+        // const message = new Message();
+        // message.type = 'text';
+        // message.room = room;
+        // message.sender = room.userId; // Assuming loggedInUser has the userId
+        // message.content = room.initialMessage || 'No message';
+        //
+        // await this.messageRepository.save(message);
 
         // Check if the room is in the queue (i.e., no agent has been assigned)
         // if (room.agentId !== null) {
@@ -320,5 +465,31 @@ export class ChatService implements OnModuleInit {
         await this.userRepository.save(agent);
 
         return room; // Return the updated room
+    }
+
+    async getAllMessages(pageRequest: PageRequest) {
+        const queryBuilder = this.messageRepository.createQueryBuilder('message').leftJoinAndSelect('message.room', 'room');
+
+        const [messages, total] = await queryBuilder
+            .orderBy('message.timestamp', 'DESC')
+            .skip(pageRequest.page * pageRequest.size)
+            .take(pageRequest.size)
+            .getManyAndCount();
+
+        return createPaginatedResponse(messages, total, pageRequest);
+    }
+
+    async updateMessageTimestamp(messageId: number, timestamp: Date) {
+        const message = await this.messageRepository.findOne({
+            where: { id: messageId },
+        });
+
+        if (!message) {
+            throw new NotFoundException(`Message with ID ${messageId} not found.`);
+        }
+
+        message.timestamp = timestamp;
+
+        return await this.messageRepository.save(message);
     }
 }

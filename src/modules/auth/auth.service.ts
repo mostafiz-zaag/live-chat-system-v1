@@ -4,7 +4,7 @@ import { randomInt } from 'crypto';
 import { addMinutes } from 'date-fns';
 import { COMPANY_NAME } from 'src/constants/global.constant';
 import { UserRequestType } from 'src/enums/user-request-type.enum';
-import { ResourceAlreadyExistException, ResourceNotFoundException } from 'src/exceptions';
+import { ResourceNotFoundException } from 'src/exceptions';
 import { MailService } from 'src/mail/mail.service';
 import { AuthenticatorService } from 'src/security/authenticator.service';
 import { CustomPrincipal } from '../../payloads/custom.principle';
@@ -22,6 +22,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ForgotUserNameDto } from './dto/forgot-username.dto';
 import { LostMyDeviceDto } from './dto/lost-my-device.dto';
 import { Role } from '../../enums/user-role';
+import { UserRegisterDto } from '../user/dto/user-register.dto';
 
 @Injectable()
 export class AuthService {
@@ -277,7 +278,7 @@ export class AuthService {
     //     return user;
     // }
 
-    async register(userDto: any): Promise<any> {
+    async register(userDto: UserRegisterDto) {
         // const loggedInUser = await this.securityUtil.getLoggedInUser();
         //
         // if (loggedInUser.roleAliases !== 'admin') {
@@ -287,14 +288,18 @@ export class AuthService {
         // Check if user already exists
         const existingUser = await this.userRepository.findByUsername(userDto.username);
         if (existingUser) {
-            throw new Error('User already exists with that username');
+            throw new BadRequestException('User already exists with that username');
+        }
+
+        if (userDto.username.length > 16) {
+            throw new BadRequestException('Username must be less then 17 char long.');
         }
 
         // Check if email already exists
         const existingEmail = await this.userRepository.findByEmail(userDto.email);
 
         if (existingEmail) {
-            throw new Error('User already exists with that email');
+            throw new BadRequestException('User already exists with that email');
         }
 
         // Hash the password
@@ -315,17 +320,16 @@ export class AuthService {
         newUser.isTemporaryPassword = true;
         newUser.departments = userDto.departments || [];
         newUser.languages = userDto.languages || [];
-        newUser.language = userDto.language;
         newUser.twoFASecret = secret.base32; // Save the 2FA secret
 
         // If the user is an agent, associate with a manager
         if (userDto.role === 'agent') {
             if (!userDto.managerId) {
-                throw new Error('Manager ID is required for agents.');
+                throw new BadRequestException('Manager ID is required for agents.');
             }
             const manager = await this.userRepository.findById(userDto.managerId);
             if (!manager || manager.role !== 'manager') {
-                throw new Error('Manager not found.');
+                throw new BadRequestException('Manager not found.');
             }
             newUser.manager = manager; // Assign the manager to the agent
         }
@@ -601,15 +605,16 @@ export class AuthService {
     async lostDevice(lostMyDevice: LostMyDeviceDto): Promise<any> {
         const user = await this.userRepository.findByUsername(lostMyDevice.username);
 
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
         if (lostMyDevice.email) {
             if (user.email !== lostMyDevice.email) {
                 throw new BadRequestException('Email does not match with username');
             }
         }
 
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
         user.isRequested = true;
         user.requestedType = UserRequestType.LOST_DEVICE;
         user.requestedDate = new Date();
@@ -634,7 +639,9 @@ export class AuthService {
         user.isRequested = true;
         user.requestedType = UserRequestType.FORGOT_USERNAME;
         user.requestedDate = new Date();
-        await this.userRepository.save(user);
+        const res = await this.userRepository.save(user);
+
+        console.log('User a:', res);
 
         return {
             message: 'User forgot username request successfully',

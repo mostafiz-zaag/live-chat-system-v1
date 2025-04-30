@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UploadedFile, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UploadedFile, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { ChatService } from './chat.service';
@@ -80,6 +80,8 @@ export class ChatController {
             return { message: 'File upload failed. No file received.' };
         }
 
+        console.log('upload file ', uploadFileDto);
+
         console.log(`[UPLOAD FILE] Uploading file for room ${uploadFileDto.roomId}`);
         const result = await this.chatService.uploadFile(file, uploadFileDto.roomId, uploadFileDto.senderType);
 
@@ -120,5 +122,17 @@ export class ChatController {
             message: 'Agent joined the chat successfully.',
             room,
         };
+    }
+
+    // get all message
+    @Get(`${API_PREFIX}/message/all`)
+    async getAllMessages(@Query('page') page: number, @Query('size') size: number) {
+        return await this.chatService.getAllMessages(new PageRequest(page, size));
+    }
+
+    // update message timestamp
+    @Patch(`${API_PREFIX}/message/update`)
+    async updateMessageTimestamp(@Body('id') id: number, @Body('timestamp') timestamp: Date) {
+        return await this.chatService.updateMessageTimestamp(id, timestamp);
     }
 }

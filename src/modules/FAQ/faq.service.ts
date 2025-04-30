@@ -3,10 +3,7 @@ import { instanceToPlain } from 'class-transformer';
 import { PageRequest } from 'src/common/dto/page-request.dto';
 import { createPaginatedResponse } from 'src/common/dto/pagination.dto';
 import { Role } from 'src/enums/user-role';
-import {
-    InvalidRequestException,
-    ResourceNotFoundException,
-} from 'src/exceptions';
+import { InvalidRequestException, ResourceNotFoundException } from 'src/exceptions';
 import { SecurityUtil } from 'src/utils/security.util';
 import { FaqRepository } from './faq.repository';
 import { FAQSpecification } from './faq.specification';
@@ -27,7 +24,7 @@ export class FaqService {
             loggedInUser.userId,
         );
         return {
-            message: 'FAQ created successfully.',
+            message: 'Common sentence created successfully.',
             faq,
         };
     }
@@ -40,29 +37,22 @@ export class FaqService {
         });
 
         if (!faq) {
-            return { message: 'FAQ not found.' };
+            return { message: 'Common sentence not found.' };
         }
 
         // Allow only the creator to delete
         if (faq.createdBy?.id !== loggedInUser.userId) {
-            return { message: 'You are not authorized to delete this FAQ.' };
+            return { message: 'You are not authorized to delete this common sentence.' };
         }
 
         await this.faqRepository.delete(id);
-        return { message: 'FAQ deleted successfully.' };
+        return { message: 'Common sentence deleted successfully.' };
     }
 
-    async getFaqsByRole(
-        role: Role,
-        sentence: string,
-        isActive: boolean,
-        pagerequest: PageRequest,
-    ) {
+    async getFaqsByRole(role: Role, sentence: string, isActive: boolean, pageRequest: PageRequest) {
         const loggedInUser = await this.securityUtil.getLoggedInUser();
 
-        const queryBuilder = this.faqRepository
-            .createQueryBuilder('faq')
-            .leftJoin('faq.createdBy', 'createdBy');
+        const queryBuilder = this.faqRepository.createQueryBuilder('faq').leftJoin('faq.createdBy', 'createdBy');
 
         FAQSpecification.matchSentence(queryBuilder, sentence);
         FAQSpecification.matchStatus(queryBuilder, isActive);
@@ -74,7 +64,7 @@ export class FaqService {
 
             .getManyAndCount();
 
-        return createPaginatedResponse(faqs, total, pagerequest);
+        return createPaginatedResponse(faqs, total, pageRequest);
     }
 
     async getFaqsByLoggedInUser() {
@@ -88,38 +78,94 @@ export class FaqService {
         return instanceToPlain(faqs);
     }
 
-    async getAdminAndOwnAgentFaqs(
-        sentence: string,
-        self: boolean,
-        pageRequest: PageRequest,
-    ) {
-        const queryBuilder = this.faqRepository
-            .createQueryBuilder('faq')
-            .leftJoinAndSelect('faq.createdBy', 'createdBy');
+    // async getAdminAndOwnAgentFaqs(sentence: string, self: boolean, pageRequest: PageRequest) {
+    //     const queryBuilder = this.faqRepository.createQueryBuilder('faq').leftJoinAndSelect('faq.createdBy', 'createdBy');
+    //
+    //     const user = await this.securityUtil.getLoggedInUser();
+    //
+    //     FAQSpecification.distinctFaqs(queryBuilder);
+    //     FAQSpecification.matchSentence(queryBuilder, sentence);
+    //     FAQSpecification.matchAdminOrSelf(queryBuilder, user.userId);
+    //
+    //     if (self) {
+    //         FAQSpecification.matchSelf(queryBuilder, user.userId);
+    //     }
+    //
+    //     const [faqs, total] = await queryBuilder
+    //         .orderBy('faq.id', 'DESC')
+    //         .skip(pageRequest.page * pageRequest.size)
+    //         .take(pageRequest.size)
+    //         .getManyAndCount();
+    //
+    //     return createPaginatedResponse(faqs, total, pageRequest);
+    // }
+
+    async getAdminAndOwnAgentFaqs(sentence: string, self: boolean, pageRequest: PageRequest) {
+        const queryBuilder = this.faqRepository.createQueryBuilder('faq').leftJoinAndSelect('faq.createdBy', 'createdBy');
 
         const user = await this.securityUtil.getLoggedInUser();
 
+        const role = user.roleAliases;
+
+        // Apply FAQ specifications
         FAQSpecification.distinctFaqs(queryBuilder);
         FAQSpecification.matchSentence(queryBuilder, sentence);
         FAQSpecification.matchAdminOrSelf(queryBuilder, user.userId);
+        FAQSpecification.matchRoleWiseActive(queryBuilder, role);
 
         if (self) {
             FAQSpecification.matchSelf(queryBuilder, user.userId);
         }
 
-        const [faqs, total] = await queryBuilder
-            .orderBy('faq.id', 'DESC')
-            .skip(pageRequest.page * pageRequest.size)
-            .take(pageRequest.size)
-            .getManyAndCount();
+        // Apply pagination only if `page` and `size` are provided
+        if (pageRequest.page && pageRequest.size) {
+            queryBuilder
+                .orderBy('faq.id', 'DESC')
+                .skip(pageRequest.page * pageRequest.size)
+                .take(pageRequest.size);
+        } else {
+            // If no pagination is provided, fetch all FAQs
+            queryBuilder.orderBy('faq.id', 'DESC');
+        }
 
-        return createPaginatedResponse(faqs, total, pageRequest);
+        // Fetch the FAQs data and total count based on pagination conditions
+        const [faqs, total] = await queryBuilder.getManyAndCount();
+
+        // Calculate `selfCount` and `allCount`
+        const selfCount = await this.faqRepository.createQueryBuilder('faq').where('faq.createdBy = :userId', { userId: user.userId }).getCount();
+
+        // Modify the createdBy field to include only id and username
+        const faqsDto = faqs.map((faq) => {
+            return {
+                ...faq,
+                createdBy: {
+                    id: faq.createdBy.id,
+                    username: faq.createdBy.username,
+                },
+            };
+        });
+
+        // If pagination is applied, return paginated response
+        if (pageRequest.page && pageRequest.size) {
+            return {
+                selfCount,
+                total,
+                ...createPaginatedResponse(faqsDto, total, pageRequest),
+            };
+        }
+
+        // If no pagination is applied, return all FAQs
+        return {
+            selfCount,
+            total,
+            content: faqsDto,
+        };
     }
 
     async updateIsActive(id: number, isActive: boolean) {
         const faq = await this.faqRepository.findOne({ where: { id } });
         if (!faq) {
-            throw new ResourceNotFoundException(`FAQ with id ${id} not found`);
+            throw new ResourceNotFoundException(`Common sentence with id ${id} not found`);
         }
 
         faq.isActive = isActive;
@@ -134,14 +180,12 @@ export class FaqService {
         });
 
         if (!faq) {
-            throw new ResourceNotFoundException(`FAQ with id ${id} not found`);
+            throw new ResourceNotFoundException(`Common sentence with id ${id} not found`);
         }
 
         // Allow only the creator to update
         if (faq.createdBy?.id !== loggedInUser.userId) {
-            throw new InvalidRequestException(
-                'You are not authorized to update this FAQ.',
-            );
+            throw new InvalidRequestException('You are not authorized to update this Common sentence.');
         }
 
         faq.sentence = sentence;

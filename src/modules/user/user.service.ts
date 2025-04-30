@@ -12,6 +12,7 @@ import { UserSpecification } from './user.specification.dto';
 import { createCustomPaginatedResponse, createPaginatedResponse } from '../../common/dto/pagination.dto';
 import { ResourceNotFoundException } from '../../exceptions';
 import { SecurityUtil } from '../../utils/security.util';
+import { UpdateAgentDto } from './dto/update-agent.dto';
 
 @Injectable()
 export class UserService {
@@ -99,7 +100,7 @@ export class UserService {
 
         const chatRoom = await this.roomRepository.createRoomForUser(userId, language, department, initialMessage);
 
-        // save intial message
+        // // save initial message comment for duplicate
         if (initialMessage) {
             await this.messageRepository.save({
                 room: chatRoom,
@@ -394,6 +395,44 @@ export class UserService {
     //     return filteredQueue;
     // }
 
+    // async queueListForAgent(agentId: number, pageRequest: PageRequest) {
+    //     const loggedInUser = await this.securityUtil.getLoggedInUserId();
+    //
+    //     console.log('Logged in user ID:', loggedInUser);
+    //     const agent = await this.userRepository.findById(agentId);
+    //
+    //     if (!agent) {
+    //         throw new ResourceNotFoundException(`Agent not found.`);
+    //     }
+    //
+    //     if (agent.role !== 'agent') throw new NotFoundException(`Agent not found.`);
+    //
+    //     const queue = await this.getQueueSize();
+    //
+    //     if (agent.departments == null || agent.languages == null) {
+    //         throw new BadRequestException(`Agent ${agent.username} has no assigned departments or languages.`);
+    //     }
+    //
+    //     // Filter rooms based on agent's languages and departments
+    //     const filteredQueue = queue.waitingRooms.filter((room) => {
+    //         return agent.languages.includes(room.language) && agent.departments.includes(room.department);
+    //     });
+    //
+    //     // Calculate pagination details
+    //     const total = filteredQueue.length;
+    //     const totalPages = Math.ceil(total / pageRequest.size);
+    //     const startIndex = pageRequest.page * pageRequest.size; // Ensure startIndex is calculated correctly
+    //     const endIndex = startIndex + pageRequest.size;
+    //
+    //     // Get the paginated rooms (slice filteredQueue array)
+    //     const paginatedQueue = filteredQueue.slice(startIndex, endIndex);
+    //
+    //     console.log('Paginated Queue:', paginatedQueue);
+    //
+    //     // Return paginated response
+    //     return createCustomPaginatedResponse(paginatedQueue, total, pageRequest);
+    // }
+
     async queueListForAgent(agentId: number, pageRequest: PageRequest) {
         const loggedInUser = await this.securityUtil.getLoggedInUserId();
 
@@ -424,7 +463,16 @@ export class UserService {
         const endIndex = startIndex + pageRequest.size;
 
         // Get the paginated rooms (slice filteredQueue array)
-        const paginatedQueue = filteredQueue.slice(startIndex, endIndex);
+        const paginatedQueue = filteredQueue.slice(startIndex, endIndex).map((room) => {
+            // Replace `initialMessage` with `message`
+            return {
+                ...room,
+                message: room.initialMessage, // Rename the field
+                initialMessage: undefined, // Optionally remove the original field
+            };
+        });
+
+        console.log('Paginated Queue:', paginatedQueue);
 
         // Return paginated response
         return createCustomPaginatedResponse(paginatedQueue, total, pageRequest);
@@ -742,5 +790,53 @@ export class UserService {
         return {
             message: `User ${user.username} request status updated to ${accept ? 'accepted' : 'rejected'}.`,
         };
+    }
+
+    async updateAgent(id: number, updateAgentDto: UpdateAgentDto) {
+        // Find the user by ID
+        const user = await this.userRepository.findById(id);
+        if (!user) throw new ResourceNotFoundException(`User not found.`);
+
+        // Check if the user is an agent
+        if (user.role !== Role.AGENT) {
+            throw new BadRequestException(`User with ID ${id} is not an agent.`);
+        }
+
+        // Check if email is being updated and if the new email already exists
+        if (updateAgentDto.email) {
+            const existingUserWithEmail = await this.userRepository.findOne({ where: { email: updateAgentDto.email } });
+
+            if (existingUserWithEmail && existingUserWithEmail.id !== id) {
+                throw new BadRequestException(`Email ${updateAgentDto.email} is already taken by another user.`);
+            }
+
+            // Update the email if it is provided
+            user.email = updateAgentDto.email;
+        }
+
+        // Update optional fields
+        if (updateAgentDto.departments) {
+            user.departments = updateAgentDto.departments;
+        }
+
+        if (updateAgentDto.languages) {
+            user.languages = updateAgentDto.languages;
+        }
+
+        // Find the manager by ID if provided
+        if (updateAgentDto.managerId) {
+            const manager = await this.userRepository.findById(updateAgentDto.managerId);
+
+            if (manager) {
+                user.manager = manager;
+            } else {
+                throw new NotFoundException(`Manager with ID ${updateAgentDto.managerId} not found.`);
+            }
+        }
+
+        // Save the updated user
+        const res = await this.userRepository.save(user);
+
+        return res;
     }
 }

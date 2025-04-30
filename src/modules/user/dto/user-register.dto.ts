@@ -8,6 +8,8 @@ import {
     IsNumber,
     IsOptional,
     IsString,
+    MaxLength,
+    MinLength,
     ValidateIf,
 } from 'class-validator';
 import { AgentStatus, Role } from '../../../enums/user-role';
@@ -28,6 +30,8 @@ export class UserRegisterDto {
     @ValidateIf((o) => o.role !== Role.ADMIN)
     @IsString({ message: 'Username must be a valid string.' })
     @IsNotEmpty({ message: 'Username is required for managers and agents.' })
+    @MinLength(3, { message: 'Username must be at least 3 characters long.' })
+    @MaxLength(16, { message: 'Username must not exceed 16 characters.' })
     username?: string;
 
     // Departments required for MANAGER and AGENT
