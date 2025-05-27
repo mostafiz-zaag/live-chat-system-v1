@@ -1,4 +1,18 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UploadedFile, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Get,
+    HttpCode,
+    Injectable,
+    Param,
+    Patch,
+    Post,
+    Query,
+    UploadedFile,
+    UseInterceptors,
+    UsePipes,
+    ValidationPipe,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { API_PREFIX, API_SECURED_PREFIX } from 'src/constants/project.constant';
 import { ChatService } from './chat.service';
@@ -6,9 +20,14 @@ import { LeaveAgentChatDto, LeaveChatDto } from './dto/leave-chat.dto';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { PageRequest } from '../../common/dto/page-request.dto';
 
+import { RoomRepository } from './repositories/room.repository';
+
 @Controller('/')
 export class ChatController {
-    constructor(private readonly chatService: ChatService) {}
+    constructor(
+        private readonly chatService: ChatService,
+        private readonly roomRepository: RoomRepository,
+    ) {}
 
     /**
      * User leaves the queue before being assigned to an agent.
@@ -134,5 +153,10 @@ export class ChatController {
     @Patch(`${API_PREFIX}/message/update`)
     async updateMessageTimestamp(@Body('id') id: number, @Body('timestamp') timestamp: Date) {
         return await this.chatService.updateMessageTimestamp(id, timestamp);
+    }
+
+    @Post(`${API_PREFIX}/chat/end-chat/:roomId`)
+    async endChat(@Param('roomId') roomId: number) {
+        return await this.chatService.endChat(roomId);
     }
 }

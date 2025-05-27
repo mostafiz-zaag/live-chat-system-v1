@@ -19,18 +19,20 @@ export class ChatRepository {
         return this.roomRepository.save(room);
     }
 
-    async updateRoomAgent(roomId: number, agentId: string): Promise<void> {
-        await this.roomRepository.update(
-            { id: roomId },
-            { agentId: parseInt(agentId, 10) },
-        );
+    async getLastMessageByRoomId(roomId: number): Promise<Message | null> {
+        const messages = await this.messageRepository.find({
+            where: { room: { id: roomId } }, // Use 'room: { id: roomId }'
+            order: { timestamp: 'DESC' },
+            take: 1,
+        });
+        return messages.length > 0 ? messages[0] : null; // Return the last message or null
     }
 
-    async createMessage(
-        roomId: number,
-        sender: string,
-        content: string,
-    ): Promise<Message> {
+    async updateRoomAgent(roomId: number, agentId: string): Promise<void> {
+        await this.roomRepository.update({ id: roomId }, { agentId: parseInt(agentId, 10) });
+    }
+
+    async createMessage(roomId: number, sender: string, content: string): Promise<Message> {
         const room = await this.roomRepository.findOne({
             where: { id: roomId },
         });

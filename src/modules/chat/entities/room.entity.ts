@@ -48,15 +48,21 @@ export class Room {
     @Column({ type: 'boolean', default: true, name: 'active', nullable: true })
     active: boolean;
 
+    @Column({ name: 'ended', type: 'boolean', default: false })
+    ended: boolean;
+
     getDto() {
         return {
             id: this.id,
             name: this.name,
             userId: this.userId,
             agentId: this.agentId,
-            message: this.messages?.[this.messages.length - 1]?.content || '',
+            // message: this.messages?.[this.messages.length - 1]?.content || '',
+            // messages: this.messages, // Get the last message content
             active: this.active,
             createdAt: this.createdAt,
+            message: null,
+            ended: this.ended,
         };
     }
 }

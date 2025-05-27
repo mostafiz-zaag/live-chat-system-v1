@@ -13,9 +13,13 @@ import { createCustomPaginatedResponse, createPaginatedResponse } from '../../co
 import { ResourceNotFoundException } from '../../exceptions';
 import { SecurityUtil } from '../../utils/security.util';
 import { UpdateAgentDto } from './dto/update-agent.dto';
-
+import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { Server } from 'socket.io';
+@WebSocketGateway()
 @Injectable()
 export class UserService {
+    @WebSocketServer()
+    server: Server;
     constructor(
         @Inject('NATS_SERVICE') private readonly natsClient: ClientProxy,
         private readonly chatService: ChatService,

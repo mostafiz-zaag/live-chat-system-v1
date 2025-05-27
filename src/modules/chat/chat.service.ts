@@ -11,9 +11,16 @@ import { RoomRepository } from './repositories/room.repository';
 import { PageRequest } from '../../common/dto/page-request.dto';
 import { createPaginatedResponse } from '../../common/dto/pagination.dto';
 import { Message } from './entities/message.entity';
+import { ChatRepository } from './chat.repository';
+import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { Server } from 'socket.io';
 
+@WebSocketGateway()
 @Injectable()
 export class ChatService implements OnModuleInit {
+    @WebSocketServer()
+    server: Server;
+
     constructor(
         private readonly roomRepository: RoomRepository,
         private readonly messageRepository: MessageRepository,
@@ -21,6 +28,7 @@ export class ChatService implements OnModuleInit {
         private readonly eventEmitter: EventEmitter2,
         private readonly s3ConfigService: S3ConfigService,
         private readonly securityUtil: SecurityUtil,
+        private readonly chatRepository: ChatRepository,
     ) {}
 
     onModuleInit() {
@@ -386,9 +394,16 @@ export class ChatService implements OnModuleInit {
         const [rooms, total] = await queryBuilder.getManyAndCount();
 
         // Map the room data to DTO format
-        const roomDTOs = rooms.map((value) => {
-            return value.getDto();
-        });
+        const roomDTOs = await Promise.all(
+            rooms.map(async (value) => {
+                const newMessage = await this.chatRepository.getLastMessageByRoomId(value.id);
+
+                const dto = value.getDto();
+                dto.message = newMessage?.content ?? 'Image'; // or dto.message = newMessage?.content || '';
+
+                return dto; // Make sure to return dto here
+            }),
+        );
 
         // If pagination was applied, return paginated response
         if (pageRequest.page && pageRequest.size) {
@@ -491,5 +506,32 @@ export class ChatService implements OnModuleInit {
         message.timestamp = timestamp;
 
         return await this.messageRepository.save(message);
+    }
+
+    async endChat(roomId: number) {
+        const room = await this.getRoomById(roomId);
+        if (!room) {
+            return { message: `Room with ID ${roomId} not found.` };
+        } else {
+            room.ended = true;
+            await this.roomRepository.save(room);
+        }
+
+        // Save the end chat message
+        const savedMessage = await this.saveMessage(roomId, 'user', `This chat session has been ended`);
+        const createdAt = savedMessage.timestamp;
+        const newRoomId = savedMessage.room.id;
+
+        // Emit the chat ended event
+        // this.server.to(String(roomId)).emit('chatEnded', {
+        //     sender: 'user',
+        //     message: `This chat session has been ended`,
+        //     createdAt,
+        //     roomId: newRoomId,
+        // });
+
+        console.log(`🔚 This chat session has been ended`);
+
+        return true;
     }
 }
