@@ -15,11 +15,13 @@ import { SecurityUtil } from '../../utils/security.util';
 import { UpdateAgentDto } from './dto/update-agent.dto';
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
+
 @WebSocketGateway()
 @Injectable()
 export class UserService {
     @WebSocketServer()
     server: Server;
+
     constructor(
         @Inject('NATS_SERVICE') private readonly natsClient: ClientProxy,
         private readonly chatService: ChatService,
@@ -257,13 +259,24 @@ export class UserService {
             where: { id: agentId, role: Role.AGENT },
         });
 
+        if (!agent) throw new NotFoundException(`Agent ${agentId} not found.`);
+
         const room = await this.roomRepository.getRoomById(roomId);
 
-        room.active = false;
+        if (!room) throw new NotFoundException(`Room ${roomId} not found.`);
 
+        const savedMessage = await this.chatService.saveMessage(roomId, 'agent', `This chat session has been ended`);
+        const createdAt = savedMessage.timestamp;
+        const newRoomId = savedMessage.room.id;
+        room.active = false;
         await this.roomRepository.save(room);
 
-        if (!agent) throw new NotFoundException(`Agent ${agentId} not found.`);
+        this.server.to(String(roomId)).emit('chatEnded', {
+            sender: 'agent',
+            message: `This chat session has been ended`,
+            createdAt,
+            roomId: newRoomId,
+        });
 
         agent.activeChatCount = Math.max(agent.activeChatCount - 1, 0);
         agent.isAssigned = agent.activeChatCount > 0;

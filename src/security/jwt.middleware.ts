@@ -15,31 +15,21 @@ export class JwtMiddleware implements NestMiddleware {
     async use(req: Request, res: Response, next: NextFunction) {
         try {
             // Get the token from request headers
-            const token: string =
-                await this.securityUtil.getTokenFromRequestHeader();
+            const token: string = await this.securityUtil.getTokenFromRequestHeader();
 
             // Validate the token
             if (!token || !(await this.jwtTokenUtil.isValidToken(token))) {
-                return next(
-                    new InvalidAuthenticationException(
-                        'Please Provide a valid token',
-                    ),
-                ); // Use next() to pass the error
+                return next(new InvalidAuthenticationException('Please Provide a valid token')); // Use next() to pass the error
             }
 
             // Validate and extract the principal from the token payload
             // Attach the user to the request object
-            const customPrinciple =
-                await this.jwtTokenUtil.getTokenHolderDetails(token);
+            const customPrinciple = await this.jwtTokenUtil.getTokenHolderDetails(token);
             (req as any).user = customPrinciple;
 
             if (!req.originalUrl.includes('auth')) {
                 if (!customPrinciple.active) {
-                    return next(
-                        new InvalidAuthenticationException(
-                            'Provided token account is not active please contact with system admin',
-                        ),
-                    );
+                    return next(new InvalidAuthenticationException('Provided token account is not active please contact with system admin'));
                 }
             }
             next();
@@ -51,12 +41,9 @@ export class JwtMiddleware implements NestMiddleware {
 
     // Validate the JWT payload and return the CustomPrincipal
     async validate(payload: any): Promise<CustomPrincipal> {
-        const principal =
-            await this.jwtTokenUtil.getTokenHolderDetails(payload); // Use getTokenHolderDetails from JwtTokenUtil
+        const principal = await this.jwtTokenUtil.getTokenHolderDetails(payload); // Use getTokenHolderDetails from JwtTokenUtil
         if (!principal) {
-            throw new InvalidAuthenticationException(
-                'Unauthorized error occurred',
-            );
+            throw new InvalidAuthenticationException('Unauthorized error occurred');
         }
         return principal; // Return the validated CustomPrincipal
     }

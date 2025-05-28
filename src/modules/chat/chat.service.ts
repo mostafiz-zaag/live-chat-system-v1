@@ -523,12 +523,12 @@ export class ChatService implements OnModuleInit {
         const newRoomId = savedMessage.room.id;
 
         // Emit the chat ended event
-        // this.server.to(String(roomId)).emit('chatEnded', {
-        //     sender: 'user',
-        //     message: `This chat session has been ended`,
-        //     createdAt,
-        //     roomId: newRoomId,
-        // });
+        this.server.to(String(roomId)).emit('chatEnded', {
+            sender: 'user',
+            message: `This chat session has been ended`,
+            createdAt,
+            roomId: newRoomId,
+        });
 
         console.log(`🔚 This chat session has been ended`);
 
